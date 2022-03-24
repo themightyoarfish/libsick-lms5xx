@@ -5,6 +5,12 @@ import re
 import struct
 import matplotlib.pyplot as plt
 
+plt.ion()
+f, ax = plt.subplots()
+f.show()
+f.canvas.draw()
+plot = ax.scatter([], [])
+
 
 class PointCloudLMS:
     def __init__(
@@ -15,7 +21,7 @@ class PointCloudLMS:
         end_angle: float,
         ang_increment: float,
     ):
-        self.ranges = ranges
+        self.ranges = ranges / 1000  # scanner delivers mm
         self.intensities = intensities
         self.start_angle = start_angle
         self.end_angle = end_angle
@@ -37,9 +43,13 @@ class PointCloudLMS:
 
 def display_cloud(cloud: PointCloudLMS):
 
+    global plot
+    plot.remove()
     points = cloud.cartesian_2d()
-    plt.scatter(points[0, :], points[1, :])
-    plt.show()
+    plot = ax.scatter(points[0, :], points[1, :], color="blue", marker=".")
+    f.canvas.draw()
+    f.canvas.flush_events()
+    plt.pause(0.01)
 
 
 def parse_int32(hex_string: bytes):
@@ -218,7 +228,8 @@ def main():
             t1 = time.time()
             print(f"Hz: {c / (t1-t)}")
             cloud = parse_scan_telegram(complete_data[1:-2])
-            # display_cloud(cloud)
+            if c % 2 == 0:
+                display_cloud(cloud)
             partial_datagrams = list()
             partial_datagrams.append(data[etx_idx + 1 :])
         else:
