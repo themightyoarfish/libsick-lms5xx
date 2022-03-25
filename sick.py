@@ -1,4 +1,5 @@
 import socket
+from datetime import datetime
 import time
 import numpy as np
 import re
@@ -114,6 +115,28 @@ def parse_scan_telegram(telegram: bytes):
     channels_8bit = [parse_channel(tokens) for i in range(num_8bit_channels)]
     _, _, ranges = channels_16bit[0]
     ang_incr, angles, intensities = channels_8bit[0]
+
+    position = int(next(tokens), 16)
+    name = int(next(tokens), 16)
+    if name == 1:
+        next(tokens)
+        next(tokens)
+
+    comment = int(next(tokens), 16)
+    time = int(next(tokens), 16)
+    if time == 1:
+        y = int(next(tokens), 16)
+        mo = int(next(tokens), 16)
+        d = int(next(tokens), 16)
+        h = int(next(tokens), 16)
+        mi = int(next(tokens), 16)
+        s = int(next(tokens), 16)
+        us = int(next(tokens), 16)
+        date = datetime(y, mo, d, hour=h, minute=mi, second=s, microsecond=us)
+        print(date)
+    else:
+        print("there is no time")
+
     return PointCloudLMS(ranges, intensities, angles[0], angles[-1], ang_incr)
 
 
@@ -157,63 +180,73 @@ def status_from_bytes(response: bytes):
         return 0
 
 
-scanner_sock = socket.create_connection(("192.168.95.194", 2111))
+SCANNER_IP = "192.168.95.194"
+SOPAS_PORT = 2111
+
+scanner_sock = socket.create_connection((SCANNER_IP, SOPAS_PORT))
 
 
 def send_command(cmd: str):
-    scanner_sock.send(cmd.encode("ascii"))
-    return scanner_sock.recv(4096)
+    cmd = cmd.encode("ascii")
+    print(f"Sending {cmd}")
+    scanner_sock.send(cmd)
+    reply = scanner_sock.recv(4096)
+    print(f"Response: {reply}")
+    status = status_from_bytes(reply)
+    errmsg = status_codes[status]
+    print(errmsg)
+    if errmsg != "Ok":
+        raise ValueError(errmsg)
+    return reply
+
+
+def get_ip_address(dst_ip, dst_port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect((dst_ip, dst_port))
+    my_ip = s.getsockname()[0]
+    s.close()
+    return my_ip
 
 
 def main():
 
+    # put ntp server address here to get timestamps in the scan. dunno if they refer to
+    # the measurement time or not
+    my_ip = get_ip_address(SCANNER_IP, SOPAS_PORT)
+    ip_hex_digits = [hex(int(f))[2:].upper() for f in my_ip.split(".")]
+
     accessmode_cmd = "\x02sMN SetAccessMode 03 F4724744\x03"
-    print(send_command(accessmode_cmd))
+    send_command(accessmode_cmd)
+
+    ntp_role_cmd = "\x02sWN TSCRole 1\x03"
+    send_command(ntp_role_cmd)
+
+    ntp_iface_cmd = "\x02sWN TSCTCInterface 0\x03"
+    send_command(ntp_iface_cmd)
+
+    ntp_server_cmd = "\x02sWN TSCTCSrvAddr " + " ".join(ip_hex_digits) + "\x03"
+    send_command(ntp_server_cmd)
 
     set_scancfg_cmd = "\x02sMN mLMPsetscancfg +2500 +1 +1667 -50000 +1850000\x03"
-    print(send_command(set_scancfg_cmd))
+    send_command(set_scancfg_cmd)
 
     set_scandatacfg_cmd = "\x02sWN LMDscandatacfg 00 00 1 0 0 0 00 0 0 0 1 +1\x03"
-    print(set_scandatacfg_cmd.encode("ascii"))
     reply = send_command(set_scandatacfg_cmd)
-    print(reply)
-    status = status_from_bytes(reply)
-    print(status_codes[status])
 
     set_echo_cmd = "\x02sWN FREchoFilter 2\x03"
-    print(set_echo_cmd.encode("ascii"))
     reply = send_command(set_echo_cmd)
-    print(reply)
-    status = status_from_bytes(reply)
-    print(status_codes[status])
 
     set_outputrange_cmd = "\x02sWN LMPoutputRange 1 +1667 -50000 +1850000\x03"
-    print(set_outputrange_cmd.encode("ascii"))
     reply = send_command(set_outputrange_cmd)
-    print(reply)
-    status = status_from_bytes(reply)
-    print(status_codes[status])
 
     storeparams_cmd = "\x02sMN mEEwriteall\x03"
-    print(storeparams_cmd.encode("ascii"))
     reply = send_command(storeparams_cmd)
-    print(reply)
-    status = status_from_bytes(reply)
-    print(status_codes[status])
 
     run_cmd = "\x02sMN Run\x03"
-    print(run_cmd.encode("ascii"))
     reply = send_command(run_cmd)
-    print(reply)
-    status = status_from_bytes(reply)
-    print(status_codes[status])
 
     senddata_cmd = "\x02sEN LMDscandata 1\x03"
-    print(senddata_cmd.encode("ascii"))
     reply = send_command(senddata_cmd)
-    print(reply)
-    status = status_from_bytes(reply)
-    print(status_codes[status])
     partial_datagrams = list()
     t = time.time()
     c = 0
@@ -226,7 +259,7 @@ def main():
             c += 1
             # print("Got complete datagram ", complete_data)
             t1 = time.time()
-            print(f"Hz: {c / (t1-t)}")
+            # print(f"Hz: {c / (t1-t)}")
             cloud = parse_scan_telegram(complete_data[1:-2])
             if c % 2 == 0:
                 display_cloud(cloud)
