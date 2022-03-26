@@ -172,7 +172,7 @@ status_codes = [
 
 
 def status_from_bytes(response: bytes):
-    pattern = bytes("\x02sFA (.+)\03", "ascii")
+    pattern = bytes("\x02sFA (.+)\0x3", "ascii")
     match = re.search(pattern, response)
     if match:
         return int(match.group(1), 16)
