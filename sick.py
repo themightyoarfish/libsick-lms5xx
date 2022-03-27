@@ -172,7 +172,9 @@ status_codes = [
 
 
 def status_from_bytes(response: bytes):
-    pattern = bytes("\x02sFA (.+)\0x3", "ascii")
+    # buggy, this parses only error messages, no repsonses which might contain
+    # success/failure messages.
+    pattern = bytes("\x02sFA (.+)\x03", "ascii")
     match = re.search(pattern, response)
     if match:
         return int(match.group(1), 16)

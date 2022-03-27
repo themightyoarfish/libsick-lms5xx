@@ -58,14 +58,12 @@ struct LMSConfigParams {
 };
 
 static uint32_t ip_addr_to_int(const string &ip_str) {
-  struct sockaddr_in sa;
-  static constexpr int LEN = 3 + 4 * 3 + 1;
-  char str[LEN];
 
+  uint32_t ip_network;
   // store this IP address in sa:
-  inet_pton(AF_INET, ip_str.c_str(), &(sa.sin_addr));
+  inet_pton(AF_INET, ip_str.c_str(), &ip_network);
 
-  return sa.sin_addr.s_addr;
+  return ip_network;
 }
 
 template <size_t NumPts = 1141> struct Scan {
@@ -80,7 +78,7 @@ template <size_t NumPts = 1141> struct Scan {
   Vector<float, NumPts> cos_map;
 };
 
-using ScanCallback = function<void(Scan<1141>)>;
+using ScanCallback = function<void(const Scan<1141> &)>;
 
 class SOPASProtocol {
 
@@ -101,13 +99,13 @@ public:
       : sensor_ip_(sensor_ip), port_(port), callback_(fn) {
     stop_.store(false);
 
-    sock_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    sock_fd_ = socket(PF_INET, SOCK_STREAM, 0);
     if (sock_fd_ < 0) {
       throw std::runtime_error("Unable to create socket.");
     }
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = port;
+    addr.sin_port = htons(port);
     addr.sin_addr.s_addr = ip_addr_to_int(sensor_ip);
 
     int connect_result = connect(
@@ -172,11 +170,14 @@ enum SOPASCommand {
 /*     else: */
 /*         return 0 */
 
-sick_err_t status_from_bytes(const char *data, size_t len) {
+sick_err_t status_from_bytes_ascii(const char *data, size_t len, const string& method) {
+    // todo, regex search for the different answer starts, match the command name and
+    // check if there's at least one more number. If yes, is usually success or error,
+    // if no, is success.
   if (len <= 6) {
     // error, msg cant contain a status code
   }
-  static const string pattern = "\x02 %2X \x03";
+  static const string pattern = "\x02 " + method + "%2X \x03";
   uint8_t status;
   int scanf_result = sscanf(data, pattern.c_str(), status);
   if (scanf_result != 1) {
@@ -192,11 +193,12 @@ static sick_err_t send_sopas_command(int sock_fd, const char *data,
     // error
   }
   array<char, 4096> recvbuf;
+  recvbuf.fill(0xFF);
   int recv_result = recv(sock_fd, recvbuf.data(), 4096, 0);
   if (recv_result < 0) {
     // error
   }
-  return status_from_bytes(recvbuf.data(), recv_result);
+  return status_from_bytes_ascii(recvbuf.data(), recv_result);
 }
 
 class SOPASProtocolASCII : public SOPASProtocol {
@@ -234,6 +236,9 @@ public:
   sick_err_t save_params() override { return sick_err_t::Ok; }
 };
 
+static void cbk(const Scan<1141> &scan) {}
+
 int main() {
-  // wat
+  SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
+  proto.set_access_mode();
 }
