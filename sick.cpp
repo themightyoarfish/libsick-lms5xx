@@ -233,7 +233,7 @@ static string method(const char *sopas_cmd, size_t len) {
   if (len < sizeof("\x02...")) {
     throw runtime_error("wat");
   } else
-    return string(sopas_cmd+1, 3);
+    return string(sopas_cmd + 1, 3);
 }
 
 sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
@@ -242,13 +242,14 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
   // or error, if no, is success.
   if (len <= 6) {
     // error, msg cant contain a status code
+    throw runtime_error("data too short");
   }
   const string answer_method = method(data, len);
   if (answer_method == "sFA") {
     // generic errors
-    static const string pattern = "\x02sFA %u\x03";
+    static const char pattern[]{"\x02sFA %u\x03"};
     unsigned int status = 0;
-    int scanf_result = sscanf(data, pattern.c_str(), status);
+    int scanf_result = sscanf(data, pattern, &status);
     if (scanf_result != 1) {
       // parse error
     }
@@ -291,8 +292,9 @@ class SOPASProtocolASCII : public SOPASProtocol {
       {TSCROLE, "\x02sWN TSCRole %02d\x03"},
       {TSCTCINTERFACE, "\x02sWN TSCTCInterface %02d\x03"},
       {TSCTCSRVADDR, "\x02sWN TSCTCSrvAddr %s\x03"},
-      {MLMPSETSCANCFG, "\x02sMN mLMPsetscancfg +%4u +1 +%4u %d %d\x03"},
-      /* set_scancfg_cmd = "\x02sMN mLMPsetscancfg +2500 +1 +1667 -50000 +1850000\x03" */
+      // retardation: the signs in sopas ascci are usually optional, but not for
+      // the start and end angles
+      {MLMPSETSCANCFG, "\x02sMN mLMPsetscancfg %+4u +1 +%4u %+d %+d\x03"},
   };
 
 public:
@@ -344,7 +346,7 @@ public:
   }
 
   sick_err_t set_scan_config(const LMSConfigParams &params) override {
-      // convert to degrees and add offset so 0 is straight ahead
+    // convert to degrees and add offset so 0 is straight ahead
     auto angle_to_lms = [](rad angle_in) { return angle_in * RAD2DEG + 90; };
 
     const hz frequency = params.frequency;
@@ -359,13 +361,13 @@ public:
 
     return send_command(MLMPSETSCANCFG, hz_Lms, ang_increment_lms,
                         start_angle_lms, end_angle_lms);
-    /* set_scancfg_cmd = "\x02sMN mLMPsetscancfg +2500 +1 +1667 -50000 +1850000\x03" */
+    /* set_scancfg_cmd = "\x02sMN mLMPsetscancfg +2500 +1 +1667 -50000
+     * +1850000\x03" */
     /*   hz freuency; */
     /*   rad resolution; */
     /*   // from -95° to 95° */
     /*   rad start_angle; */
     /*   rad end_angle; */
-
   }
 
   sick_err_t save_params() override { return sick_err_t::Ok; }
@@ -377,6 +379,9 @@ int main() {
   SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
   sick_err_t status = proto.set_access_mode();
   status = proto.configure_ntp_client("192.168.95.44");
-  status = proto.set_scan_config(LMSConfigParams{.frequency = 25, .resolution = 0.1667, .start_angle = -95 * DEG2RAD, .end_angle = 95 * DEG2RAD});
+  status = proto.set_scan_config(LMSConfigParams{.frequency = 25,
+                                                 .resolution = 0.1667,
+                                                 .start_angle = -95 * DEG2RAD,
+                                                 .end_angle = 95 * DEG2RAD});
   std::cout << sick_err_t_to_string(status) << std::endl;
 }
