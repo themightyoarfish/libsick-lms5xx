@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <atomic>
 #include <functional>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <netinet/in.h>
@@ -40,8 +41,44 @@ enum class sick_err_t : uint8_t {
   Sopas_Error_HubAddressAddressExceeded,
   Sopas_Error_HubAddressBlankExpected,
   Sopas_Error_AsyncMethodsAreSuppressed,
-  Sopas_Error_ComplexArraysNotSupported
+  Sopas_Error_ComplexArraysNotSupported,
+  CustomError
 };
+
+const string sick_err_t_to_string(const sick_err_t &err) {
+  const size_t idx = static_cast<size_t>(err);
+  constexpr size_t last_idx = static_cast<size_t>(sick_err_t::CustomError);
+  const array<string, last_idx + 1> strerrors{
+      "Ok",
+      "Sopas_Error_METHODIN_ACCESSDENIED",
+      "Sopas_Error_METHODIN_UNKNOWNINDEX",
+      "Sopas_Error_VARIABLE_UNKNOWNINDEX",
+      "Sopas_Error_LOCALCONDITIONFAILED",
+      "Sopas_Error_INVALID_DATA",
+      "Sopas_Error_UNKNOWN_ERROR",
+      "Sopas_Error_BUFFER_OVERFLOW",
+      "Sopas_Error_BUFFER_UNDERFLOW",
+      "Sopas_Error_ERROR_UNKNOWN_TYPE",
+      "Sopas_Error_VARIABLE_WRITE_ACCESSDENIED",
+      "Sopas_Error_UNKNOWN_CMD_FOR_NAMESERVER",
+      "Sopas_Error_UNKNOWN_COLA_COMMAND",
+      "Sopas_Error_METHODIN_SERVER_BUSY",
+      "Sopas_Error_FLEX_OUT_OF_BOUNDS",
+      "Sopas_Error_EVENTREG_UNKNOWNINDEX",
+      "Sopas_Error_COLA_A_VALUE_OVERFLOW",
+      "Sopas_Error_COLA_A_INVALID_CHARACTER",
+      "Sopas_Error_OSAI_NO_MESSAGE",
+      "Sopas_Error_OSAI_NO_ANSWER_MESSAGE",
+      "Sopas_Error_INTERNAL",
+      "Sopas_Error_HubAddressCorrupted",
+      "Sopas_Error_HubAddressDecoding",
+      "Sopas_Error_HubAddressAddressExceeded",
+      "Sopas_Error_HubAddressBlankExpected",
+      "Sopas_Error_AsyncMethodsAreSuppressed",
+      "Sopas_Error_ComplexArraysNotSupported",
+      "CustomError"};
+  return strerrors[static_cast<size_t>(err)];
+}
 
 using rad = double;
 using hz = double;
@@ -101,7 +138,7 @@ public:
 
     sock_fd_ = socket(PF_INET, SOCK_STREAM, 0);
     if (sock_fd_ < 0) {
-      throw std::runtime_error("Unable to create socket.");
+      throw runtime_error("Unable to create socket.");
     }
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
@@ -111,7 +148,7 @@ public:
     int connect_result = connect(
         sock_fd_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
     if (connect_result < 0) {
-      throw std::runtime_error("Unable to connect to scanner.");
+      throw runtime_error("Unable to connect to scanner.");
     }
   }
 
@@ -127,7 +164,7 @@ public:
   virtual sick_err_t save_params() = 0;
 
   sick_err_t start_scan() {
-    std::vector<char> buffer(4096);
+    vector<char> buffer(4096);
     poller_ = thread([&] {
       while (!stop_.load()) {
         int read_bytes = read(sock_fd_, &buffer[0], 4096);
@@ -170,20 +207,38 @@ enum SOPASCommand {
 /*     else: */
 /*         return 0 */
 
-sick_err_t status_from_bytes_ascii(const char *data, size_t len, const string& method) {
-    // todo, regex search for the different answer starts, match the command name and
-    // check if there's at least one more number. If yes, is usually success or error,
-    // if no, is success.
+static string method(const char *sopas_cmd, size_t len) {
+  if (len < sizeof("\x02 ...")) {
+    throw runtime_error("wat");
+  } else
+    return string(sopas_cmd[2], sopas_cmd[5]);
+}
+
+sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
+  // todo, regex search for the different answer starts, match the command name
+  // and check if there's at least one more number. If yes, is usually success
+  // or error, if no, is success.
   if (len <= 6) {
     // error, msg cant contain a status code
   }
-  static const string pattern = "\x02 " + method + "%2X \x03";
-  uint8_t status;
-  int scanf_result = sscanf(data, pattern.c_str(), status);
-  if (scanf_result != 1) {
-    // parse error
+  const string answer_method = method(data, len);
+  if (answer_method == "sFA") {
+    // generic errors
+    static const string pattern = "\x02 sFA %2X \x03";
+    uint8_t status;
+    int scanf_result = sscanf(data, pattern.c_str(), status);
+    if (scanf_result != 1) {
+      // parse error
+    }
+    return static_cast<sick_err_t>(status);
+  } else {
+    // proper response, but might have to get parsed specifically for
+    // success/fail
+    // skip STX and method, then identify response name, then check if there is
+    // a space after it, in which case any error code is "always" following. If
+    // 0, ok, otherwise not ok
+    return sick_err_t::Ok;
   }
-  return static_cast<sick_err_t>(status);
 }
 
 static sick_err_t send_sopas_command(int sock_fd, const char *data,
@@ -193,11 +248,12 @@ static sick_err_t send_sopas_command(int sock_fd, const char *data,
     // error
   }
   array<char, 4096> recvbuf;
-  recvbuf.fill(0xFF);
+  recvbuf.fill(0x00);
   int recv_result = recv(sock_fd, recvbuf.data(), 4096, 0);
   if (recv_result < 0) {
     // error
   }
+  std::cout << string(recvbuf.data()) << std::endl;
   return status_from_bytes_ascii(recvbuf.data(), recv_result);
 }
 
@@ -240,5 +296,6 @@ static void cbk(const Scan<1141> &scan) {}
 
 int main() {
   SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
-  proto.set_access_mode();
+  sick_err_t status = proto.set_access_mode();
+  std::cout << sick_err_t_to_string(status) << std::endl;
 }
