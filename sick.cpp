@@ -1,6 +1,7 @@
 #include <Eigen/Core>
 #include <arpa/inet.h>
 #include <atomic>
+#include <errno.h>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -136,7 +137,8 @@ template <size_t NumPts = 1141> struct Scan {
   Vector<float, NumPts> cos_map;
 };
 
-using ScanCallback = function<void(const Scan<1141> &)>;
+/* using ScanCallback = function<void(const Scan<1141> &)>; */
+using ScanCallback = function<void(int read_bytes, char *data)>;
 
 class SOPASProtocol {
 
@@ -186,13 +188,16 @@ public:
   virtual sick_err_t save_params() = 0;
 
   sick_err_t start_scan() {
-    vector<char> buffer(4096);
     poller_ = thread([&] {
+      vector<char> buffer(4096);
       while (!stop_.load()) {
-        int read_bytes = read(sock_fd_, &buffer[0], 4096);
+        int read_bytes = recv(sock_fd_, buffer.data(), 4096, 0);
         if (read_bytes < 0) {
-          // error
+          std::cout << sock_fd_ << std::endl;
+          std::cout << strerror(errno) << std::endl;
         }
+        // optional<Scan> maybe_s = scan_assembler.add_telegram();
+        callback_(read_bytes, buffer.data());
       }
 
       // read socket until entire message
@@ -294,12 +299,19 @@ class SOPASProtocolASCII : public SOPASProtocol {
       {TSCTCSRVADDR, "\x02sWN TSCTCSrvAddr %s\x03"},
       // retardation: the signs in sopas ascci are usually optional, but not for
       // the start and end angles
-      {MLMPSETSCANCFG, "\x02sMN mLMPsetscancfg %+4u +1 +%4u %+d %+d\x03"},
-  };
+      {MLMPSETSCANCFG, "\x02sMN mLMPsetscancfg +%4u +1 +%4u %+d %+d\x03"},
+      // the telegram listing has fewer values than are actually needed, so this
+      // is guesswork. this is hardcoded to make remission show up in the scan
+      // telegrams. looks like the second 00 is an unknown mystery value that is
+      // not documented
+      {LMDSCANDATACFG, "\x02sWN LMDscandatacfg 00 00 1 0 0 0 00 0 0 0 1 1\x03"},
+      {FRECHOFILTER, "\x02sWN FREchoFilter %u\x03"},
+      {LMPOUTPUTRANGE, "\x02sWN LMPoutputRange 1 +%4u %+d %+d\x03"},
+      {MEEWRITEALL, "\x02sMN mEEwriteall\x03"},
+      {RUN, "\x02sMN Run\x03"},
+      {LMDSCANDATA, "\x02sEN LMDscandata 1\x03"}};
 
 public:
-  sick_err_t run() override { return sick_err_t::Ok; }
-
   sick_err_t set_access_mode(const uint8_t mode = 3,
                              const uint32_t pw_hash = 0xF4724744) override {
     array<char, 128> buffer;
@@ -359,29 +371,51 @@ public:
     const int end_angle_lms =
         static_cast<unsigned int>(angle_to_lms(params.end_angle) * 10000);
 
-    return send_command(MLMPSETSCANCFG, hz_Lms, ang_increment_lms,
-                        start_angle_lms, end_angle_lms);
-    /* set_scancfg_cmd = "\x02sMN mLMPsetscancfg +2500 +1 +1667 -50000
-     * +1850000\x03" */
-    /*   hz freuency; */
-    /*   rad resolution; */
-    /*   // from -95° to 95° */
-    /*   rad start_angle; */
-    /*   rad end_angle; */
+    sick_err_t status = send_command(MLMPSETSCANCFG, hz_Lms, ang_increment_lms,
+                                     start_angle_lms, end_angle_lms);
+    if (status != sick_err_t::Ok) {
+      return status;
+    }
+    status = send_command(LMDSCANDATACFG);
+    if (status != sick_err_t::Ok) {
+      return status;
+    }
+    status = send_command(FRECHOFILTER, 2);
+    if (status != sick_err_t::Ok) {
+      return status;
+    }
+    status = send_command(LMPOUTPUTRANGE, ang_increment_lms, start_angle_lms,
+                          end_angle_lms);
+    return status;
   }
 
-  sick_err_t save_params() override { return sick_err_t::Ok; }
+  sick_err_t save_params() override { return send_command(MEEWRITEALL); }
+
+  sick_err_t run() override {
+    sick_err_t status = send_command(RUN);
+    if (status != sick_err_t::Ok) {
+      return status;
+    }
+    return send_command(LMDSCANDATA);
+  }
 };
 
-static void cbk(const Scan<1141> &scan) {}
+static void cbk(int read_bytes, char *data) {
+  std::cout << "got data: " << read_bytes << std::endl;
+}
 
 int main() {
   SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
   sick_err_t status = proto.set_access_mode();
   status = proto.configure_ntp_client("192.168.95.44");
-  status = proto.set_scan_config(LMSConfigParams{.frequency = 25,
-                                                 .resolution = 0.1667,
+  status = proto.set_scan_config(LMSConfigParams{.frequency = 50,
+                                                 .resolution = 0.25,
                                                  .start_angle = -95 * DEG2RAD,
                                                  .end_angle = 95 * DEG2RAD});
+  status = proto.save_params();
+  status = proto.run();
   std::cout << sick_err_t_to_string(status) << std::endl;
+  proto.start_scan();
+  std::this_thread::sleep_for(std::chrono::seconds(10));
+  proto.stop();
 }
