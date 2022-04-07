@@ -1,6 +1,7 @@
 #include <Eigen/Core>
 #include <arpa/inet.h>
 #include <atomic>
+#include <chrono>
 #include <errno.h>
 #include <functional>
 #include <iostream>
@@ -14,6 +15,10 @@
 
 using namespace std;
 using namespace Eigen;
+
+using days = chrono::duration<long, std::ratio<86400>>;
+using months = chrono::duration<long, std::ratio<2629746>>;
+using years = chrono::duration<long, std::ratio<31556952>>;
 
 constexpr double DEG2RAD = 180.0 / M_PI;
 constexpr double RAD2DEG = 1 / DEG2RAD;
@@ -150,11 +155,278 @@ public:
     first_junk_idx = 0;
     buffer.reserve(4096);
   }
+  struct Channel {
+    double ang_incr;
+    vector<float> angles;
+    vector<float> values;
+
+    Channel() { ang_incr = 0; }
+
+    Channel(size_t n_values, double ang_incr) {
+      this->ang_incr = ang_incr;
+      angles.reserve(n_values);
+      values.reserve(n_values);
+    }
+  };
+
+  static Channel parse_channel(char *token) {
+    string content(token);
+    token = strtok(NULL, " ");
+
+    string scale_factor_s(token);
+    unsigned int scale_factor = scale_factor_s == "3F800000" ? 1 : 2;
+    token = strtok(NULL, " ");
+
+    char *p;
+    const long offset = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+
+    unsigned int start_angle_u;
+    double start_angle;
+    sscanf(token, "%X  ", &start_angle_u);
+    start_angle = static_cast<int>(start_angle_u) / 10000.0;
+    token = strtok(NULL, " ");
+
+    const double ang_incr = strtol(token, &p, 16) / 10000.0;
+    token = strtok(NULL, " ");
+
+    const long n_values = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+
+    std::cout << "n_values=" << n_values << ", start_angle=" << start_angle
+              << std::endl;
+
+    Channel cn(ang_incr, n_values);
+    for (int i = 0; i < n_values; ++i) {
+      const long value = strtol(token, &p, 16);
+      cn.values.emplace_back(offset + scale_factor * value / 1000.0);
+      token = strtok(NULL, " ");
+    }
+
+    for (int i = 0; i < n_values; ++i) {
+      cn.angles.emplace_back(start_angle + i * ang_incr);
+    }
+    return cn;
+  }
+  /*     def parse_channel(generator): */
+  /*         content = next(tokens) */
+  /*         scale_factor = int(next(tokens), 16) */
+  /*         if scale_factor == int("3F800000", 16): */
+  /*             scale_factor = 1 */
+  /*         elif scale_factor == int("40000000", 16): */
+  /*             scale_factor = 2 */
+  /*         else: */
+  /*             raise ValueError(f"Unexpected scale factor {scale_factor}")
+   */
+
+  /*         offset = int(next(tokens), 16) */
+  /*         start_angle_hex = next(tokens) */
+  /*         start_angle = parse_int32(start_angle_hex) / 10000 */
+
+  /*         ang_incr_hex = next(tokens) */
+  /*         ang_incr = parse_int16(ang_incr_hex) / 10000 */
+  /*         n_data = int(next(tokens), 16) */
+  /*         values = [offset + scale_factor * int(next(tokens), 16) for i in
+   * range(n_data)] */
+  /*         angles = [start_angle + i * ang_incr for i in range(n_data)] */
+  /*         values = np.array(values) */
+  /*         angles = np.array(angles) */
+  /*         return ang_incr, angles, values */
 
   static void parse_scan_telegram(const vector<char> &buffer,
                                   size_t last_valid_idx) {
-    std::cout << int(buffer[0]) << "-" << int(buffer[last_valid_idx])
-              << std::endl;
+    const char *begin = &buffer[0];
+    const char *end = begin + last_valid_idx + 1;
+    vector<char> copy(std::distance(begin, end) + 1, '\0');
+    std::copy(begin, end, copy.begin());
+    char *token = strtok(&copy[0], " ");
+
+    string method(token);
+    token = strtok(NULL, " ");
+    string command(token);
+    token = strtok(NULL, " ");
+    string proto_version(token);
+    token = strtok(NULL, " ");
+    string device_num(token);
+    token = strtok(NULL, " ");
+    char *p;
+    const int serial_num = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    string device_status1(token);
+    token = strtok(NULL, " ");
+    string device_status2(token);
+    token = strtok(NULL, " ");
+    string num_telegrams(token);
+    token = strtok(NULL, " ");
+    string num_scans(token);
+    token = strtok(NULL, " ");
+    const long time_since_boot_us = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    const long time_of_transmission_us = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    string status_digital_input_pins1(token);
+    token = strtok(NULL, " ");
+    string status_digital_input_pins2(token);
+    token = strtok(NULL, " ");
+    string status_digital_output_pins1(token);
+    token = strtok(NULL, " ");
+    string status_digital_output_pins2(token);
+    token = strtok(NULL, " ");
+    string layer_angle(token);
+    // if layer_angle != 0: error
+    token = strtok(NULL, " ");
+    const double scan_freq = strtol(token, &p, 16) / 100.0;
+    token = strtok(NULL, " ");
+    const long measurement_freq = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    const long encoder = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    if (encoder != 0) {
+      // pos
+      token = strtok(NULL, " ");
+      // speed
+      token = strtok(NULL, " ");
+    }
+    const long num_16bit_channels = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    std::cout << "num_16bit_channels = " << num_16bit_channels << std::endl;
+    if (num_16bit_channels != 1) {
+      throw std::runtime_error("num_16bit_channels != 1");
+    }
+
+    vector<Channel> channels_16bit(num_16bit_channels);
+    for (int i = 0; i < num_16bit_channels; ++i) {
+      Channel cn = parse_channel(token);
+    }
+
+    const long num_8bit_channels = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    if (num_8bit_channels != 1) {
+      throw std::runtime_error("num_8bit_channels = " +
+                               to_string(num_8bit_channels));
+    }
+
+    vector<Channel> channels_8bit(num_8bit_channels);
+    for (int i = 0; i < num_8bit_channels; ++i) {
+      Channel cn = parse_channel(token);
+    }
+
+    const long position = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    const long name_exists = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    if (name_exists == 1) {
+      token = strtok(NULL, " ");
+      token = strtok(NULL, " ");
+    }
+    // always 0
+    const long comment_exists = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+
+    const long time_exists = strtol(token, &p, 16);
+    token = strtok(NULL, " ");
+    if (time_exists == 1) {
+      const long y = strtol(token, &p, 16);
+      token = strtok(NULL, " ");
+      const long mo = strtol(token, &p, 16);
+      token = strtok(NULL, " ");
+      const long d = strtol(token, &p, 16);
+      token = strtok(NULL, " ");
+      const long h = strtol(token, &p, 16);
+      token = strtok(NULL, " ");
+      const long mi = strtol(token, &p, 16);
+      token = strtok(NULL, " ");
+      const long s = strtol(token, &p, 16);
+      token = strtok(NULL, " ");
+      const long us = strtol(token, &p, 16);
+      token = strtok(NULL, " ");
+      chrono::system_clock::time_point stamp;
+      stamp += years(y) + months(mo) + days(d) + chrono::hours(h) +
+               chrono::minutes(mi) + chrono::seconds(s) +
+               chrono::microseconds(us);
+      std::cout << "h m s " << h << ", " << mi << ", " << s << std::endl;
+    } else {
+      // no time stamp, use system time?
+    }
+
+    /*     name = int(next(tokens), 16) */
+    /*     if name == 1: */
+    /*         next(tokens) */
+    /*         next(tokens) */
+
+    /*     comment = int(next(tokens), 16) */
+    /*     time = int(next(tokens), 16) */
+    /*     if time == 1: */
+    /*         y = int(next(tokens), 16) */
+    /*         mo = int(next(tokens), 16) */
+    /*         d = int(next(tokens), 16) */
+    /*         h = int(next(tokens), 16) */
+    /*         mi = int(next(tokens), 16) */
+    /*         s = int(next(tokens), 16) */
+    /*         us = int(next(tokens), 16) */
+    /*         date = datetime(y, mo, d, hour=h, minute=mi, second=s,
+     * microsecond=us) */
+    /*         print(date) */
+    /*     else: */
+    /*         print("there is no time") */
+
+    /* def parse_scan_telegram(telegram: bytes): */
+    /*     """Expects STX and ETX bytes to be stripped off""" */
+    /*     tokens = (t for t in telegram.split(b" ")) */
+    /*     method = next(tokens) */
+    /*     command = next(tokens) */
+    /*     proto_version = next(tokens) */
+    /*     device_num = next(tokens) */
+    /*     serial_num = int(next(tokens), 16) */
+    /*     device_status = (next(tokens), next(tokens)) */
+    /*     num_telegrams = next(tokens) */
+    /*     num_scans = next(tokens) */
+    /*     time_since_boot_us = int(next(tokens), 16) */
+    /*     time_of_transmission_us = int(next(tokens), 16) */
+    /*     status_digital_input_pins = (next(tokens), next(tokens)) */
+    /*     status_digital_output_pins = (next(tokens), next(tokens)) */
+    /*     layer_angle = next(tokens)  # should be 0 */
+    /*     scan_freq = int(next(tokens), 16) / 100 */
+    /*     measurement_freq = int(next(tokens), 16)  # should be 1141 * 25 */
+    /*     encoder = int(next(tokens), 16) */
+    /*     if encoder != 0: */
+    /*         encoder_pos = next(tokens) */
+    /*         encoder_speed = next(tokens) */
+    /*     num_16bit_channels = int(next(tokens), 16) */
+
+    /*     channels_16bit = [parse_channel(tokens) for i in
+     * range(num_16bit_channels)] */
+
+    /*     num_8bit_channels = int(next(tokens), 16) */
+    /*     channels_8bit = [parse_channel(tokens) for i in
+     * range(num_8bit_channels)] */
+    /*     _, _, ranges = channels_16bit[0] */
+    /*     ang_incr, angles, intensities = channels_8bit[0] */
+
+    /*     position = int(next(tokens), 16) */
+    /*     name = int(next(tokens), 16) */
+    /*     if name == 1: */
+    /*         next(tokens) */
+    /*         next(tokens) */
+
+    /*     comment = int(next(tokens), 16) */
+    /*     time = int(next(tokens), 16) */
+    /*     if time == 1: */
+    /*         y = int(next(tokens), 16) */
+    /*         mo = int(next(tokens), 16) */
+    /*         d = int(next(tokens), 16) */
+    /*         h = int(next(tokens), 16) */
+    /*         mi = int(next(tokens), 16) */
+    /*         s = int(next(tokens), 16) */
+    /*         us = int(next(tokens), 16) */
+    /*         date = datetime(y, mo, d, hour=h, minute=mi, second=s,
+     * microsecond=us) */
+    /*         print(date) */
+    /*     else: */
+    /*         print("there is no time") */
+
+    /*     return PointCloudLMS(ranges, intensities, angles[0], angles[-1],
+     * ang_incr) */
   }
 
   void add_data(const char *data, size_t length) {
