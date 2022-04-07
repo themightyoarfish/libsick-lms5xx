@@ -169,38 +169,35 @@ public:
     }
   };
 
-  static Channel parse_channel(char *token) {
-    string content(token);
-    token = strtok(NULL, " ");
+  static Channel parse_channel(char **token) {
+    string content(*token);
+    *token = strtok(NULL, " ");
 
-    string scale_factor_s(token);
+    string scale_factor_s(*token);
     unsigned int scale_factor = scale_factor_s == "3F800000" ? 1 : 2;
-    token = strtok(NULL, " ");
+    *token = strtok(NULL, " ");
 
     char *p;
-    const long offset = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
+    const long offset = strtol(*token, &p, 16);
+    *token = strtok(NULL, " ");
 
     unsigned int start_angle_u;
     double start_angle;
-    sscanf(token, "%X  ", &start_angle_u);
+    sscanf(*token, "%X  ", &start_angle_u);
     start_angle = static_cast<int>(start_angle_u) / 10000.0;
-    token = strtok(NULL, " ");
+    *token = strtok(NULL, " ");
 
-    const double ang_incr = strtol(token, &p, 16) / 10000.0;
-    token = strtok(NULL, " ");
+    const double ang_incr = strtol(*token, &p, 16) / 10000.0;
+    *token = strtok(NULL, " ");
 
-    const long n_values = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
-
-    std::cout << "n_values=" << n_values << ", start_angle=" << start_angle
-              << std::endl;
+    const long n_values = strtol(*token, &p, 16);
+    *token = strtok(NULL, " ");
 
     Channel cn(ang_incr, n_values);
     for (int i = 0; i < n_values; ++i) {
-      const long value = strtol(token, &p, 16);
+      const long value = strtol(*token, &p, 16);
       cn.values.emplace_back(offset + scale_factor * value / 1000.0);
-      token = strtok(NULL, " ");
+      *token = strtok(NULL, " ");
     }
 
     for (int i = 0; i < n_values; ++i) {
@@ -289,14 +286,13 @@ public:
     }
     const long num_16bit_channels = strtol(token, &p, 16);
     token = strtok(NULL, " ");
-    std::cout << "num_16bit_channels = " << num_16bit_channels << std::endl;
     if (num_16bit_channels != 1) {
       throw std::runtime_error("num_16bit_channels != 1");
     }
 
     vector<Channel> channels_16bit(num_16bit_channels);
     for (int i = 0; i < num_16bit_channels; ++i) {
-      Channel cn = parse_channel(token);
+      channels_16bit.emplace_back(parse_channel(&token));
     }
 
     const long num_8bit_channels = strtol(token, &p, 16);
@@ -308,7 +304,7 @@ public:
 
     vector<Channel> channels_8bit(num_8bit_channels);
     for (int i = 0; i < num_8bit_channels; ++i) {
-      Channel cn = parse_channel(token);
+      Channel cn = parse_channel(&token);
     }
 
     const long position = strtol(token, &p, 16);
@@ -344,7 +340,6 @@ public:
       stamp += years(y) + months(mo) + days(d) + chrono::hours(h) +
                chrono::minutes(mi) + chrono::seconds(s) +
                chrono::microseconds(us);
-      std::cout << "h m s " << h << ", " << mi << ", " << s << std::endl;
     } else {
       // no time stamp, use system time?
     }
