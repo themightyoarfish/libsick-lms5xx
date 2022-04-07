@@ -125,20 +125,74 @@ static string ip_addr_to_hex_str(const string &ip_str) {
   return out;
 }
 
-template <size_t NumPts = 1141> struct Scan {
+struct Scan {
   /* EIGEN_MAKE_ALIGNED_OPERTOR_NEW; */
 
-  Vector<float, NumPts> ranges;
-  Vector<float, NumPts> intensities;
+  unsigned int n_vals;
+  VectorXf ranges;
+  VectorXf intensities;
   rad start_angle;
   rad end_angle;
   rad ang_increment;
-  Vector<float, NumPts> sin_map;
-  Vector<float, NumPts> cos_map;
+  VectorXf sin_map;
+  VectorXf cos_map;
 };
 
 /* using ScanCallback = function<void(const Scan<1141> &)>; */
 using ScanCallback = function<void(int read_bytes, char *data)>;
+
+class ScanBatcher {
+  vector<char> buffer;
+  size_t first_junk_idx;
+
+public:
+  ScanBatcher() {
+    first_junk_idx = 0;
+    buffer.reserve(4096);
+  }
+
+  static void parse_scan_telegram(const vector<char> &buffer,
+                                  size_t last_valid_idx) {
+    std::cout << int(buffer[0]) << "-" << int(buffer[last_valid_idx])
+              << std::endl;
+  }
+
+  void add_data(const char *data, size_t length) {
+
+    // check if etx found
+    int etx_idx = -1;
+    for (size_t i = 0; i < length; ++i) {
+      if (data[i] == '\x03') {
+        etx_idx = i;
+        break;
+      }
+    }
+
+    if (etx_idx >= 0) {
+      buffer.reserve(first_junk_idx - 1 + etx_idx + 1);
+      buffer.insert(buffer.begin() + first_junk_idx, data, data + etx_idx + 1);
+      first_junk_idx += etx_idx + 1;
+      if (buffer[0] == '\x02' && buffer[first_junk_idx - 1] == '\x03') {
+        parse_scan_telegram(buffer, first_junk_idx - 1);
+      } else {
+        // this happens sometimes, how possible?
+        std::cout << "Invalid data: " << string(&buffer[0], first_junk_idx - 1)
+                  << std::endl;
+      }
+      first_junk_idx = 0;
+
+      // its possible that etx is not the end of the telegram, but there is new
+      // data thereafter. we cannot discard this.
+      if (etx_idx + 1 < length) {
+        buffer.insert(buffer.begin(), data + etx_idx + 1, data + length);
+        first_junk_idx += (length - (etx_idx + 1));
+      }
+    } else {
+      buffer.insert(buffer.begin() + first_junk_idx, data, data + length);
+      first_junk_idx += length;
+    }
+  }
+};
 
 class SOPASProtocol {
 
@@ -148,6 +202,7 @@ protected:
   ScanCallback callback_;
   atomic<bool> stop_;
   thread poller_;
+  ScanBatcher batcher_;
 
   int sock_fd_;
 
@@ -189,13 +244,14 @@ public:
 
   sick_err_t start_scan() {
     poller_ = thread([&] {
-      vector<char> buffer(4096);
+      vector<char> buffer(2 * 4096);
       while (!stop_.load()) {
-        int read_bytes = recv(sock_fd_, buffer.data(), 4096, 0);
+        int read_bytes = recv(sock_fd_, buffer.data(), buffer.size(), 0);
         if (read_bytes < 0) {
           std::cout << sock_fd_ << std::endl;
           std::cout << strerror(errno) << std::endl;
         }
+        batcher_.add_data(buffer.data(), read_bytes);
         // optional<Scan> maybe_s = scan_assembler.add_telegram();
         callback_(read_bytes, buffer.data());
       }
@@ -400,9 +456,7 @@ public:
   }
 };
 
-static void cbk(int read_bytes, char *data) {
-  std::cout << "got data: " << read_bytes << std::endl;
-}
+static void cbk(int read_bytes, char *data) {}
 
 int main() {
   SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
