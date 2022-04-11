@@ -20,8 +20,25 @@ using days = chrono::duration<long, std::ratio<86400>>;
 using months = chrono::duration<long, std::ratio<2629746>>;
 using years = chrono::duration<long, std::ratio<31556952>>;
 
+using rad = double;
+using hz = double;
+
+struct LMSConfigParams {
+  hz frequency;
+  rad resolution;
+  // from -95° to 95°
+  rad start_angle;
+  rad end_angle;
+
+  // echo config?
+  //
+};
+
 constexpr double DEG2RAD = 180.0 / M_PI;
 constexpr double RAD2DEG = 1 / DEG2RAD;
+//
+// convert to degrees and add offset so 0 is straight ahead
+static double angle_to_lms(rad angle_in) { return angle_in * RAD2DEG + 90; };
 
 enum class sick_err_t : uint8_t {
   Ok = 0,
@@ -89,20 +106,6 @@ const string sick_err_t_to_string(const sick_err_t &err) {
   return strerrors[static_cast<size_t>(err)];
 }
 
-using rad = double;
-using hz = double;
-
-struct LMSConfigParams {
-  hz frequency;
-  rad resolution;
-  // from -95° to 95°
-  rad start_angle;
-  rad end_angle;
-
-  // echo config?
-  //
-};
-
 static uint32_t ip_addr_to_int(const string &ip_str) {
 
   uint32_t ip_network;
@@ -163,11 +166,14 @@ struct Channel {
 class ScanBatcher {
   vector<char> buffer;
   size_t first_junk_idx;
+  Scan s;
+  bool first_scan;
 
 public:
   ScanBatcher() {
     first_junk_idx = 0;
     buffer.reserve(4096);
+    first_scan = true;
   }
 
   static Channel parse_channel(char **token) {
@@ -232,7 +238,7 @@ public:
   /*         return ang_incr, angles, values */
 
   static void parse_scan_telegram(const vector<char> &buffer,
-                                  size_t last_valid_idx) {
+                                  size_t last_valid_idx, Scan &scan) {
     const char *begin = &buffer[0];
     const char *end = begin + last_valid_idx + 1;
     vector<char> copy(std::distance(begin, end) + 1, '\0');
@@ -441,7 +447,9 @@ public:
       buffer.insert(buffer.begin() + first_junk_idx, data, data + etx_idx + 1);
       first_junk_idx += etx_idx + 1;
       if (buffer[0] == '\x02' && buffer[first_junk_idx - 1] == '\x03') {
-        parse_scan_telegram(buffer, first_junk_idx - 1);
+        parse_scan_telegram(buffer, first_junk_idx - 1, s);
+        // return the scan
+        first_scan = false;
       } else {
         // this happens sometimes, how possible?
         std::cout << "Invalid data: " << string(&buffer[0], first_junk_idx - 1)
@@ -685,8 +693,6 @@ public:
   }
 
   sick_err_t set_scan_config(const LMSConfigParams &params) override {
-    // convert to degrees and add offset so 0 is straight ahead
-    auto angle_to_lms = [](rad angle_in) { return angle_in * RAD2DEG + 90; };
 
     const hz frequency = params.frequency;
     const unsigned int hz_Lms = static_cast<unsigned int>(frequency * 100);
