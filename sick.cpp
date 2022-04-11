@@ -146,6 +146,20 @@ struct Scan {
 /* using ScanCallback = function<void(const Scan<1141> &)>; */
 using ScanCallback = function<void(int read_bytes, char *data)>;
 
+struct Channel {
+  double ang_incr;
+  vector<float> angles;
+  vector<float> values;
+
+  Channel() { ang_incr = 0; }
+
+  Channel(size_t n_values, double ang_incr) {
+    this->ang_incr = ang_incr;
+    angles.reserve(n_values);
+    values.reserve(n_values);
+  }
+};
+
 class ScanBatcher {
   vector<char> buffer;
   size_t first_junk_idx;
@@ -155,19 +169,6 @@ public:
     first_junk_idx = 0;
     buffer.reserve(4096);
   }
-  struct Channel {
-    double ang_incr;
-    vector<float> angles;
-    vector<float> values;
-
-    Channel() { ang_incr = 0; }
-
-    Channel(size_t n_values, double ang_incr) {
-      this->ang_incr = ang_incr;
-      angles.reserve(n_values);
-      values.reserve(n_values);
-    }
-  };
 
   static Channel parse_channel(char **token) {
     string content(*token);
@@ -652,9 +653,12 @@ public:
   template <typename... Args>
   sick_err_t send_command(SOPASCommand cmd, Args... args) {
     array<char, 4096> buffer;
-    // authorized client mode with pw hash from telegram listing
+// authorized client mode with pw hash from telegram listing
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
     int bytes_written =
         sprintf(buffer.data(), command_masks_[cmd].c_str(), args...);
+#pragma GCC diagnostic pop
     if (bytes_written < 0) {
       throw runtime_error("sprintf fail");
     }
