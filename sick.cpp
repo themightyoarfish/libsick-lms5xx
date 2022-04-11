@@ -21,6 +21,7 @@ using months = chrono::duration<long, std::ratio<2629746>>;
 using years = chrono::duration<long, std::ratio<31556952>>;
 
 using rad = double;
+using deg = double;
 using hz = double;
 
 struct LMSConfigParams {
@@ -38,7 +39,8 @@ constexpr double DEG2RAD = 180.0 / M_PI;
 constexpr double RAD2DEG = 1 / DEG2RAD;
 //
 // convert to degrees and add offset so 0 is straight ahead
-static double angle_to_lms(rad angle_in) { return angle_in * RAD2DEG + 90; };
+static double angle_to_lms(rad angle_in) { return angle_in * RAD2DEG + 90; }
+static double angle_from_lms(deg angle_in) { return (angle_in - 90) * DEG2RAD; }
 
 enum class sick_err_t : uint8_t {
   Ok = 0,
@@ -144,23 +146,50 @@ struct Scan {
   rad ang_increment;
   VectorXf sin_map;
   VectorXf cos_map;
+
+  chrono::system_clock::time_point time;
+
+  Scan() { n_vals = 0; }
+
+  Scan(const Scan &other) = default;
 };
 
-/* using ScanCallback = function<void(const Scan<1141> &)>; */
-using ScanCallback = function<void(int read_bytes, char *data)>;
+template <typename T> class simple_optional {
+  T t_;
+  bool has_value_;
+
+public:
+  simple_optional(const T &t) : t_(t), has_value_(true){};
+  simple_optional() : has_value_(false){};
+
+  bool has_value() const { return has_value_; }
+
+  operator T() const {
+    if (!has_value()) {
+      throw invalid_argument("optional has no content.");
+    }
+    return t_;
+  }
+};
+
+using ScanCallback = function<void(const Scan &)>;
 
 struct Channel {
   double ang_incr;
   vector<float> angles;
   vector<float> values;
+  string description;
 
   Channel() { ang_incr = 0; }
 
-  Channel(size_t n_values, double ang_incr) {
+  Channel(const string &description, size_t n_values, double ang_incr) {
+    this->description = description;
     this->ang_incr = ang_incr;
     angles.reserve(n_values);
     values.reserve(n_values);
   }
+
+  bool valid() { return angles.size() == values.size(); }
 };
 
 class ScanBatcher {
@@ -200,7 +229,7 @@ public:
     const long n_values = strtol(*token, &p, 16);
     *token = strtok(NULL, " ");
 
-    Channel cn(ang_incr, n_values);
+    Channel cn(content, ang_incr, n_values);
     for (int i = 0; i < n_values; ++i) {
       const long value = strtol(*token, &p, 16);
       cn.values.emplace_back(offset + scale_factor * value / 1000.0);
@@ -208,7 +237,7 @@ public:
     }
 
     for (int i = 0; i < n_values; ++i) {
-      cn.angles.emplace_back(start_angle + i * ang_incr);
+      cn.angles.emplace_back(angle_from_lms(start_angle + i * ang_incr));
     }
     return cn;
   }
@@ -237,7 +266,7 @@ public:
   /*         angles = np.array(angles) */
   /*         return ang_incr, angles, values */
 
-  static void parse_scan_telegram(const vector<char> &buffer,
+  static bool parse_scan_telegram(const vector<char> &buffer,
                                   size_t last_valid_idx, Scan &scan) {
     const char *begin = &buffer[0];
     const char *end = begin + last_valid_idx + 1;
@@ -299,7 +328,7 @@ public:
 
     vector<Channel> channels_16bit(num_16bit_channels);
     for (int i = 0; i < num_16bit_channels; ++i) {
-      channels_16bit.emplace_back(parse_channel(&token));
+      channels_16bit[i] = parse_channel(&token);
     }
 
     const long num_8bit_channels = strtol(token, &p, 16);
@@ -311,7 +340,7 @@ public:
 
     vector<Channel> channels_8bit(num_8bit_channels);
     for (int i = 0; i < num_8bit_channels; ++i) {
-      Channel cn = parse_channel(&token);
+      channels_8bit[i] = parse_channel(&token);
     }
 
     const long position = strtol(token, &p, 16);
@@ -347,91 +376,55 @@ public:
       stamp += years(y) + months(mo) + days(d) + chrono::hours(h) +
                chrono::minutes(mi) + chrono::seconds(s) +
                chrono::microseconds(us);
+
+      if (channels_16bit.size() < 1) {
+        throw runtime_error("parse_scan_telegram() got no 16bit channels");
+      } else {
+        const Channel &range_cn = channels_16bit.front();
+        if (range_cn.description.find("DIST") == string::npos) {
+          throw runtime_error("First 16bit channel was not range but " +
+                              range_cn.description);
+        } else {
+          const Channel &intensity_cn = channels_8bit.front();
+          if (intensity_cn.description.find("RSSI") == string::npos) {
+            throw runtime_error("First 8bit channel was not intensity but " +
+                                range_cn.description);
+          } else {
+            if (range_cn.values.size() != intensity_cn.values.size()) {
+              throw runtime_error(
+                  "Ranges and intensities not matched in size.");
+            } else {
+
+              if (scan.ranges.size() == 0) {
+                // first time -> fill nonchanging fields
+                scan.n_vals = range_cn.values.size();
+                scan.ranges = VectorXf::Zero(scan.n_vals, 1);
+                scan.intensities = VectorXf::Zero(scan.n_vals, 1);
+                scan.ang_increment = range_cn.ang_incr;
+                scan.start_angle = angle_to_lms(range_cn.angles.front());
+                scan.end_angle = angle_to_lms(range_cn.angles.back());
+                VectorXf angles(scan.n_vals, 1);
+                scan.cos_map = Eigen::cos(angles.array());
+                scan.sin_map = Eigen::sin(angles.array());
+              }
+
+              memcpy(scan.ranges.data(), &range_cn.values[0],
+                     scan.n_vals * sizeof(float));
+              memcpy(scan.intensities.data(), &intensity_cn.values[0],
+                     scan.n_vals * sizeof(float));
+              scan.time = stamp;
+              return true;
+            }
+          }
+        }
+      }
     } else {
       // no time stamp, use system time?
     }
-
-    /*     name = int(next(tokens), 16) */
-    /*     if name == 1: */
-    /*         next(tokens) */
-    /*         next(tokens) */
-
-    /*     comment = int(next(tokens), 16) */
-    /*     time = int(next(tokens), 16) */
-    /*     if time == 1: */
-    /*         y = int(next(tokens), 16) */
-    /*         mo = int(next(tokens), 16) */
-    /*         d = int(next(tokens), 16) */
-    /*         h = int(next(tokens), 16) */
-    /*         mi = int(next(tokens), 16) */
-    /*         s = int(next(tokens), 16) */
-    /*         us = int(next(tokens), 16) */
-    /*         date = datetime(y, mo, d, hour=h, minute=mi, second=s,
-     * microsecond=us) */
-    /*         print(date) */
-    /*     else: */
-    /*         print("there is no time") */
-
-    /* def parse_scan_telegram(telegram: bytes): */
-    /*     """Expects STX and ETX bytes to be stripped off""" */
-    /*     tokens = (t for t in telegram.split(b" ")) */
-    /*     method = next(tokens) */
-    /*     command = next(tokens) */
-    /*     proto_version = next(tokens) */
-    /*     device_num = next(tokens) */
-    /*     serial_num = int(next(tokens), 16) */
-    /*     device_status = (next(tokens), next(tokens)) */
-    /*     num_telegrams = next(tokens) */
-    /*     num_scans = next(tokens) */
-    /*     time_since_boot_us = int(next(tokens), 16) */
-    /*     time_of_transmission_us = int(next(tokens), 16) */
-    /*     status_digital_input_pins = (next(tokens), next(tokens)) */
-    /*     status_digital_output_pins = (next(tokens), next(tokens)) */
-    /*     layer_angle = next(tokens)  # should be 0 */
-    /*     scan_freq = int(next(tokens), 16) / 100 */
-    /*     measurement_freq = int(next(tokens), 16)  # should be 1141 * 25 */
-    /*     encoder = int(next(tokens), 16) */
-    /*     if encoder != 0: */
-    /*         encoder_pos = next(tokens) */
-    /*         encoder_speed = next(tokens) */
-    /*     num_16bit_channels = int(next(tokens), 16) */
-
-    /*     channels_16bit = [parse_channel(tokens) for i in
-     * range(num_16bit_channels)] */
-
-    /*     num_8bit_channels = int(next(tokens), 16) */
-    /*     channels_8bit = [parse_channel(tokens) for i in
-     * range(num_8bit_channels)] */
-    /*     _, _, ranges = channels_16bit[0] */
-    /*     ang_incr, angles, intensities = channels_8bit[0] */
-
-    /*     position = int(next(tokens), 16) */
-    /*     name = int(next(tokens), 16) */
-    /*     if name == 1: */
-    /*         next(tokens) */
-    /*         next(tokens) */
-
-    /*     comment = int(next(tokens), 16) */
-    /*     time = int(next(tokens), 16) */
-    /*     if time == 1: */
-    /*         y = int(next(tokens), 16) */
-    /*         mo = int(next(tokens), 16) */
-    /*         d = int(next(tokens), 16) */
-    /*         h = int(next(tokens), 16) */
-    /*         mi = int(next(tokens), 16) */
-    /*         s = int(next(tokens), 16) */
-    /*         us = int(next(tokens), 16) */
-    /*         date = datetime(y, mo, d, hour=h, minute=mi, second=s,
-     * microsecond=us) */
-    /*         print(date) */
-    /*     else: */
-    /*         print("there is no time") */
-
-    /*     return PointCloudLMS(ranges, intensities, angles[0], angles[-1],
-     * ang_incr) */
+    return false;
   }
 
-  void add_data(const char *data, size_t length) {
+  simple_optional<Scan> add_data(const char *data, size_t length) {
 
     // check if etx found
     int etx_idx = -1;
@@ -442,14 +435,18 @@ public:
       }
     }
 
+    bool got_scan = false;
+
     if (etx_idx >= 0) {
       buffer.reserve(first_junk_idx - 1 + etx_idx + 1);
       buffer.insert(buffer.begin() + first_junk_idx, data, data + etx_idx + 1);
       first_junk_idx += etx_idx + 1;
       if (buffer[0] == '\x02' && buffer[first_junk_idx - 1] == '\x03') {
-        parse_scan_telegram(buffer, first_junk_idx - 1, s);
-        // return the scan
-        first_scan = false;
+        if (parse_scan_telegram(buffer, first_junk_idx - 1, s)) {
+          // return the scan
+          first_scan = false;
+          got_scan = true;
+        }
       } else {
         // this happens sometimes, how possible?
         std::cout << "Invalid data: " << string(&buffer[0], first_junk_idx - 1)
@@ -466,6 +463,11 @@ public:
     } else {
       buffer.insert(buffer.begin() + first_junk_idx, data, data + length);
       first_junk_idx += length;
+    }
+    if (got_scan) {
+      return simple_optional<Scan>(s);
+    } else {
+      return simple_optional<Scan>();
     }
   }
 };
@@ -527,9 +529,11 @@ public:
           std::cout << sock_fd_ << std::endl;
           std::cout << strerror(errno) << std::endl;
         }
-        batcher_.add_data(buffer.data(), read_bytes);
-        // optional<Scan> maybe_s = scan_assembler.add_telegram();
-        callback_(read_bytes, buffer.data());
+        simple_optional<Scan> maybe_s =
+            batcher_.add_data(buffer.data(), read_bytes);
+        if (maybe_s.has_value()) {
+          callback_(maybe_s);
+        }
       }
 
       // read socket until entire message
@@ -733,20 +737,32 @@ public:
   }
 };
 
-static void cbk(int read_bytes, char *data) {}
+static atomic<int> n_scans;
+
+static void cbk(const Scan &scan) { ++n_scans; }
 
 int main() {
+  n_scans = 0;
   SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
   sick_err_t status = proto.set_access_mode();
   status = proto.configure_ntp_client("192.168.95.44");
-  status = proto.set_scan_config(LMSConfigParams{.frequency = 50,
-                                                 .resolution = 0.25,
+  status = proto.set_scan_config(LMSConfigParams{.frequency = 75,
+                                                 .resolution = 1,
                                                  .start_angle = -95 * DEG2RAD,
                                                  .end_angle = 95 * DEG2RAD});
   status = proto.save_params();
   status = proto.run();
   std::cout << sick_err_t_to_string(status) << std::endl;
   proto.start_scan();
+  std::cout << "Wait a bit for scanner..." << std::endl;
+  std::this_thread::sleep_for(std::chrono::seconds(2));
+  const auto tic = chrono::system_clock::now();
+  n_scans = 0;
   std::this_thread::sleep_for(std::chrono::seconds(10));
+  const auto toc = chrono::system_clock::now();
+  const double s_elapsed =
+      chrono::duration_cast<chrono::milliseconds>(toc - tic).count() / 1000.0;
+  std::cout << "got " << n_scans << " in " << s_elapsed << "s ("
+            << n_scans.load() / s_elapsed << "hz)" << std::endl;
   proto.stop();
 }
