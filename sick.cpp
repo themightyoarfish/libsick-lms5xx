@@ -728,16 +728,21 @@ public:
   }
 
   template <typename... Args>
-  sick_err_t send_command(SOPASCommand cmd, Args... args) {
-    array<char, 4096> buffer;
+  int make_command_msg(char *data_out, SOPASCommand cmd, Args... args) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
-    int bytes_written =
-        sprintf(buffer.data(), command_masks_[cmd].c_str(), args...);
+    int bytes_written = sprintf(data_out, command_masks_[cmd].c_str(), args...);
 #pragma GCC diagnostic pop
     if (bytes_written < 0) {
       throw runtime_error("sprintf fail");
     }
+    return bytes_written;
+  }
+
+  template <typename... Args>
+  sick_err_t send_command(SOPASCommand cmd, Args... args) {
+    array<char, 4096> buffer;
+    int bytes_written = make_command_msg(buffer.data(), cmd, args...);
 
     sick_err_t result = send_sopas_command_and_check_answer(
         sock_fd_, buffer.data(), bytes_written);
@@ -804,12 +809,33 @@ public:
   void stop() override {
     SOPASProtocol::stop();
     // thread should now be joined
-    sick_err_t scan_stop_result = send_command(LMDSCANDATA, 0);
-    if (scan_stop_result == sick_err_t::Ok) {
-      sick_err_t login_result = set_access_mode(3);
-      if (login_result == sick_err_t::Ok) {
-        sick_err_t stop_meas_result = send_command(LMCSTOPMEAS);
-        std::cout << "Stopped measurements." << std::endl;
+    array<char, 4096> buffer;
+    int len = make_command_msg(buffer.data(), LMDSCANDATA, 0);
+    int bytes_sent = send_sopas_command(sock_fd_, buffer.data(), len);
+    while (true) {
+      int bytes_received = receive_sopas_reply(sock_fd_, &buffer[0], 4096);
+      string answer(&buffer[0], bytes_received);
+      if (answer.find("LMDscandata") != string::npos) {
+        sick_err_t status =
+            status_from_bytes_ascii(buffer.data(), bytes_received);
+        if (status == sick_err_t::Ok) {
+          sick_err_t login_result = set_access_mode(3);
+          if (login_result == sick_err_t::Ok) {
+            sick_err_t stop_meas_result = send_command(LMCSTOPMEAS);
+            if (stop_meas_result == sick_err_t::Ok) {
+              std::cout << "Stopped measurements." << std::endl;
+            } else {
+              std::cout << "Failed to stop measurements." << std::endl;
+            }
+          } else {
+            std::cout << "Login failed." << std::endl;
+          }
+        } else {
+          std::cout << "Scan stop cmd failed: "<< sick_err_t_to_string(status) << std::endl;
+        }
+        return;
+      } else {
+        std::cout << "Skipping trailing data ..." << std::endl;
       }
     }
   }
@@ -866,7 +892,7 @@ int main() {
   std::this_thread::sleep_for(std::chrono::seconds(2));
   const auto tic = chrono::system_clock::now();
   n_scans = 0;
-  std::this_thread::sleep_for(std::chrono::seconds(10));
+  std::this_thread::sleep_for(std::chrono::seconds(4));
   const auto toc = chrono::system_clock::now();
   const double s_elapsed =
       chrono::duration_cast<chrono::milliseconds>(toc - tic).count() / 1000.0;
