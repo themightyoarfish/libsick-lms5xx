@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <netinet/in.h>
+#include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <sys/socket.h>
@@ -37,12 +38,12 @@ struct LMSConfigParams {
   //
 };
 
-constexpr double DEG2RAD = 180.0 / M_PI;
-constexpr double RAD2DEG = 1 / DEG2RAD;
+constexpr double RAD2DEG = 180.0 / M_PI;
+constexpr double DEG2RAD = 1 / RAD2DEG;
 //
 // convert to degrees and add offset so 0 is straight ahead
-static double angle_to_lms(rad angle_in) { return angle_in * RAD2DEG + 90; }
-static double angle_from_lms(deg angle_in) { return (angle_in - 90) * DEG2RAD; }
+static deg angle_to_lms(rad angle_in) { return angle_in * RAD2DEG + 90; }
+static rad angle_from_lms(deg angle_in) { return (angle_in - 90) * DEG2RAD; }
 
 enum class sick_err_t : uint8_t {
   Ok = 0,
@@ -234,7 +235,7 @@ public:
     Channel cn(content, ang_incr, n_values);
     for (int i = 0; i < n_values; ++i) {
       const long value = strtol(*token, &p, 16);
-      cn.values.emplace_back(offset + scale_factor * value / 1000.0);
+      cn.values.emplace_back(offset + scale_factor * value);
       *token = strtok(NULL, " ");
     }
 
@@ -406,12 +407,15 @@ public:
                 scan.start_angle = angle_to_lms(range_cn.angles.front());
                 scan.end_angle = angle_to_lms(range_cn.angles.back());
                 VectorXf angles(scan.n_vals, 1);
+                memcpy(angles.data(), &range_cn.angles[0],
+                       scan.n_vals * sizeof(float));
                 scan.cos_map = Eigen::cos(angles.array());
                 scan.sin_map = Eigen::sin(angles.array());
               }
 
               memcpy(scan.ranges.data(), &range_cn.values[0],
                      scan.n_vals * sizeof(float));
+              scan.ranges /= 1000;
               memcpy(scan.intensities.data(), &intensity_cn.values[0],
                      scan.n_vals * sizeof(float));
               scan.time = stamp;
@@ -831,7 +835,8 @@ public:
             std::cout << "Login failed." << std::endl;
           }
         } else {
-          std::cout << "Scan stop cmd failed: "<< sick_err_t_to_string(status) << std::endl;
+          std::cout << "Scan stop cmd failed: " << sick_err_t_to_string(status)
+                    << std::endl;
         }
         return;
       } else {
@@ -845,14 +850,18 @@ static atomic<int> n_scans;
 using namespace pcl;
 
 static void cbk(const Scan &scan) {
-  /* PointCloud<PointXYZI> cloud_out; */
-  /* const VectorXf x = scan.ranges.array() * scan.sin_map.array(); */
-  /* const VectorXf y = scan.ranges.array() * scan.cos_map.array(); */
-  /* for (int i = 0; i < x.size(); ++i) { */
-  /*   cloud_out.points.emplace_back(PointXYZI(x(i), y(i), 0, 0)); */
-  /* } */
-  /* std::cout << "Got scan with " << cloud_out.size() << " points." <<
-   * std::endl; */
+  PointCloud<PointXYZI> cloud_out;
+  cloud_out.width = scan.ranges.size();
+  cloud_out.height = 1;
+  const VectorXf x = scan.ranges.array() * scan.cos_map.array();
+  const VectorXf y = scan.ranges.array() * scan.sin_map.array();
+  for (int i = 0; i < x.size(); ++i) {
+    cloud_out.points.emplace_back(
+        PointXYZI(x(i), y(i), 0, scan.intensities[i]));
+  }
+  io::savePCDFileASCII(string("clouds/cloud-") + to_string(n_scans) + ".pcd",
+                       cloud_out);
+  std::cout << "Got scan with " << cloud_out.size() << " points." << std::endl;
   ++n_scans;
 }
 
