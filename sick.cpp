@@ -8,6 +8,8 @@
 #include <map>
 #include <memory>
 #include <netinet/in.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
@@ -655,16 +657,26 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
   }
 }
 
-static sick_err_t send_sopas_command(int sock_fd, const char *data,
-                                     size_t len) {
+static int receive_sopas_reply(int sock_fd, char *data_out, size_t len) {
+  return recv(sock_fd, data_out, len, 0);
+}
+
+static int send_sopas_command(int sock_fd, const char *data, size_t len) {
+  return send(sock_fd, data, len, 0);
+}
+
+static sick_err_t
+send_sopas_command_and_check_answer(int sock_fd, const char *data, size_t len) {
   std::cout << "Command: " << string(data, len) << std::endl;
-  int send_result = send(sock_fd, data, len, 0);
+  int send_result = send_sopas_command(sock_fd, data, len);
   if (send_result < 0) {
-    // error
+    std::cout << "Could not send sopas command" << std::endl;
+    return sick_err_t::CustomError;
   }
   array<char, 4096> recvbuf;
+  // fill with 0s so we have a null-terminated string
   recvbuf.fill(0x00);
-  int recv_result = recv(sock_fd, recvbuf.data(), 4096, 0);
+  int recv_result = receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
   if (recv_result < 0) {
     std::cout << "Send sopas error: " << strerror(recv_result) << std::endl;
     return sick_err_t::CustomError;
@@ -710,15 +722,14 @@ public:
     if (bytes_written < 0) {
       /* error */
     }
-    sick_err_t result =
-        send_sopas_command(sock_fd_, buffer.data(), bytes_written);
+    sick_err_t result = send_sopas_command_and_check_answer(
+        sock_fd_, buffer.data(), bytes_written);
     return result;
   }
 
   template <typename... Args>
   sick_err_t send_command(SOPASCommand cmd, Args... args) {
     array<char, 4096> buffer;
-// authorized client mode with pw hash from telegram listing
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
     int bytes_written =
@@ -728,8 +739,8 @@ public:
       throw runtime_error("sprintf fail");
     }
 
-    sick_err_t result =
-        send_sopas_command(sock_fd_, buffer.data(), bytes_written);
+    sick_err_t result = send_sopas_command_and_check_answer(
+        sock_fd_, buffer.data(), bytes_written);
     return result;
   }
 
@@ -792,6 +803,7 @@ public:
 
   void stop() override {
     SOPASProtocol::stop();
+    // thread should now be joined
     sick_err_t scan_stop_result = send_command(LMDSCANDATA, 0);
     if (scan_stop_result == sick_err_t::Ok) {
       sick_err_t login_result = set_access_mode(3);
@@ -804,8 +816,19 @@ public:
 };
 
 static atomic<int> n_scans;
+using namespace pcl;
 
-static void cbk(const Scan &scan) { ++n_scans; }
+static void cbk(const Scan &scan) {
+  /* PointCloud<PointXYZI> cloud_out; */
+  /* const VectorXf x = scan.ranges.array() * scan.sin_map.array(); */
+  /* const VectorXf y = scan.ranges.array() * scan.cos_map.array(); */
+  /* for (int i = 0; i < x.size(); ++i) { */
+  /*   cloud_out.points.emplace_back(PointXYZI(x(i), y(i), 0, 0)); */
+  /* } */
+  /* std::cout << "Got scan with " << cloud_out.size() << " points." <<
+   * std::endl; */
+  ++n_scans;
+}
 
 int main() {
   n_scans = 0;
@@ -820,8 +843,8 @@ int main() {
     std::cout << "Could not configure ntp client" << std::endl;
     return 2;
   }
-  status = proto.set_scan_config(LMSConfigParams{.frequency = 75,
-                                                 .resolution = 1,
+  status = proto.set_scan_config(LMSConfigParams{.frequency = 25,
+                                                 .resolution = 0.1667,
                                                  .start_angle = -95 * DEG2RAD,
                                                  .end_angle = 95 * DEG2RAD});
   if (status != sick_err_t::Ok) {

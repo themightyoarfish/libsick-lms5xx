@@ -11,3 +11,8 @@ if(UNIX AND NOT APPLE)
     find_package(Threads REQUIRED)
     target_link_libraries(run-lms Threads::Threads)
 endif()
+
+find_package(PCL REQUIRED)
+target_include_directories(run-lms PRIVATE ${PCL_INCLUDE_DIRS})
+target_link_libraries(run-lms ${PCL_LIBRARIES})
+add_definitions(${PCL_DEFINITIONS})
