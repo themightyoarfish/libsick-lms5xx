@@ -539,8 +539,6 @@ public:
         if (read_bytes < 0) {
           std::cout << "Scan recv: " << strerror(errno) << std::endl;
         } else {
-          std::cout << "Got some data " << string(&buffer[0], buffer.size())
-                    << std::endl;
           simple_optional<Scan> maybe_s =
               batcher_.add_data(buffer.data(), read_bytes);
           if (maybe_s.has_value()) {
@@ -571,16 +569,10 @@ enum SOPASCommand {
   MEEWRITEALL,
   RUN,
   LMDSCANDATA,
-  LMCSTOPMEAS
+  LMCSTOPMEAS,
+  LMCSTARTMEAS
 
 };
-/* def status_from_bytes(response: bytes): */
-/*     pattern = bytes("\x02sFA (.+)\03", "ascii") */
-/*     match = re.search(pattern, response) */
-/*     if match: */
-/*         return int(match.group(1), 16) */
-/*     else: */
-/*         return 0 */
 
 static string method(const char *sopas_reply, size_t len) {
   if (len < sizeof("\x02...")) {
@@ -598,6 +590,9 @@ static bool status_ok(const string &cmd_name, int status_code) {
   }
   if (cmd_name == "Run") {
     return status_code == 1;
+  }
+  if (cmd_name == "LMCstopmeas" || cmd_name == "LMCstartmeas") {
+    return status_code == 0;
   }
   if (cmd_name == "LMDscandata") {
     // 0 means stop, 1 means start, there is no error
@@ -632,7 +627,7 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
   const string answer_method = method(data, len);
   if (answer_method == "sFA") {
     // generic errors
-    static const char pattern[]{"\x02sFA %u\x03"};
+    static const char pattern[]{"\x02sFA %2X\x03"};
     unsigned int status = 0;
     int scanf_result = sscanf(data, pattern, &status);
     if (scanf_result != 1) {
@@ -702,7 +697,8 @@ class SOPASProtocolASCII : public SOPASProtocol {
       {MEEWRITEALL, "\x02sMN mEEwriteall\x03"},
       {RUN, "\x02sMN Run\x03"},
       {LMDSCANDATA, "\x02sEN LMDscandata %u\x03"},
-      {LMCSTOPMEAS, "\x02sEN LMCstopmeas\x03"}};
+      {LMCSTOPMEAS, "\x02sMN LMCstopmeas\x03"},
+      {LMCSTARTMEAS, "\x02sMN LMCstartmeas\x03"}};
 
 public:
   sick_err_t set_access_mode(const uint8_t mode = 3,
@@ -780,6 +776,7 @@ public:
     }
     status = send_command(LMPOUTPUTRANGE, ang_increment_lms, start_angle_lms,
                           end_angle_lms);
+    status = send_command(LMCSTARTMEAS);
     return status;
   }
 
