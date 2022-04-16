@@ -246,30 +246,37 @@ def main():
 
     run_cmd = "\x02sMN Run\x03"
     reply = send_command(run_cmd)
+    # stop_cmd = "\x02sMN LMCstopmeas\x03"
+    # reply = send_command(stop_cmd)
 
-    senddata_cmd = "\x02sEN LMDscandata 1\x03"
-    reply = send_command(senddata_cmd)
-    partial_datagrams = list()
-    t = time.time()
-    c = 0
-    while True:
-        data = scanner_sock.recv(2 * 4096)
-        etx_idx = data.find(b"\x03")
-        if etx_idx >= 0:
-            partial_datagrams.append(data[: etx_idx + 1])
-            complete_data = b"".join(partial_datagrams)
-            c += 1
-            # print("Got complete datagram ", complete_data)
-            t1 = time.time()
-            # print(f"Hz: {c / (t1-t)}")
-            cloud = parse_scan_telegram(complete_data[1:-2])
-            if c % 2 == 0:
-                display_cloud(cloud)
-            partial_datagrams = list()
-            partial_datagrams.append(data[etx_idx + 1 :])
-        else:
-            partial_datagrams.append(data)
-        # print(f"Received data of size {len(data)}: ", data)
+    # senddata_cmd = "\x02sEN LMDscandata 1\x03"
+    # reply = send_command(senddata_cmd)
+    # partial_datagrams = list()
+    # t = time.time()
+    # c = 0
+    # try:
+    #     while True:
+    #         data = scanner_sock.recv(2 * 4096)
+    #         etx_idx = data.find(b"\x03")
+    #         if etx_idx >= 0:
+    #             partial_datagrams.append(data[: etx_idx + 1])
+    #             complete_data = b"".join(partial_datagrams)
+    #             c += 1
+    #             # print("Got complete datagram ", complete_data)
+    #             t1 = time.time()
+    #             # print(f"Hz: {c / (t1-t)}")
+    #             cloud = parse_scan_telegram(complete_data[1:-2])
+    #             if c % 2 == 0:
+    #                 display_cloud(cloud)
+    #             partial_datagrams = list()
+    #             partial_datagrams.append(data[etx_idx + 1 :])
+    #         else:
+    #             partial_datagrams.append(data)
+    #         # print(f"Received data of size {len(data)}: ", data)
+
+    # except:
+    #     stop_cmd = "\x02sMN LMCstopmeas\x03"
+    #     reply = send_command(stop_cmd)
 
 
 if __name__ == "__main__":

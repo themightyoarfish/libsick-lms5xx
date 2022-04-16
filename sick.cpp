@@ -501,6 +501,17 @@ public:
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = ip_addr_to_int(sensor_ip);
 
+    // TODO: some commands might cause the scanner to take a while to respond
+    // (when config changes or something). so there might not be a universal
+    // timeout, but we should set a long one to not deadlock during config, and
+    // a shorter one during scan parsing to know that we have lost connection.
+    struct timeval timeout {
+      .tv_sec = 2, .tv_usec = 0
+    };
+
+    setsockopt(sock_fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(sock_fd_, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
     // TODO: connect timeout
     int connect_result = connect(
         sock_fd_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
@@ -526,23 +537,23 @@ public:
       while (!stop_.load()) {
         int read_bytes = recv(sock_fd_, buffer.data(), buffer.size(), 0);
         if (read_bytes < 0) {
-          std::cout << sock_fd_ << std::endl;
-          std::cout << strerror(errno) << std::endl;
-        }
-        simple_optional<Scan> maybe_s =
-            batcher_.add_data(buffer.data(), read_bytes);
-        if (maybe_s.has_value()) {
-          callback_(maybe_s);
+          std::cout << "Scan recv: " << strerror(errno) << std::endl;
+        } else {
+          std::cout << "Got some data " << string(&buffer[0], buffer.size())
+                    << std::endl;
+          simple_optional<Scan> maybe_s =
+              batcher_.add_data(buffer.data(), read_bytes);
+          if (maybe_s.has_value()) {
+            callback_(maybe_s);
+          }
         }
       }
-
-      // read socket until entire message
     });
 
     return sick_err_t::Ok;
   }
 
-  void stop() {
+  virtual void stop() {
     stop_.store(true);
     poller_.join();
   }
@@ -560,6 +571,7 @@ enum SOPASCommand {
   MEEWRITEALL,
   RUN,
   LMDSCANDATA,
+  LMCSTOPMEAS
 
 };
 /* def status_from_bytes(response: bytes): */
@@ -570,20 +582,52 @@ enum SOPASCommand {
 /*     else: */
 /*         return 0 */
 
-static string method(const char *sopas_cmd, size_t len) {
+static string method(const char *sopas_reply, size_t len) {
   if (len < sizeof("\x02...")) {
     throw runtime_error("wat");
   } else
-    return string(sopas_cmd + 1, 3);
+    return string(sopas_reply + 1, 3);
+}
+
+static bool status_ok(const string &cmd_name, int status_code) {
+  if (cmd_name == "mLMPsetscancfg") {
+    return status_code == 0;
+  }
+  if (cmd_name == "mEEwriteall") {
+    return status_code == 1;
+  }
+  if (cmd_name == "Run") {
+    return status_code == 1;
+  }
+  if (cmd_name == "LMDscandata") {
+    // 0 means stop, 1 means start, there is no error
+    return true;
+  }
+  return status_code == 1;
+}
+
+static bool validate_response(const char *data, size_t len) {
+  if (len <= 6) {
+    return false;
+  }
+  // check that there is exactly one STX and one ETX byte, otherwise we somehow
+  // read multiple messages, which can happen in some cases if you time out your
+  // recv, but the data then comes with your next call (should you try one)
+  size_t n_stx = 0, n_etx = 0;
+  for (int i = 0; i < len; ++i) {
+    if (data[i] == '\x02') {
+      ++n_stx;
+    }
+    if (data[i] == '\x03') {
+      ++n_etx;
+    }
+  }
+  return n_stx == 1 && n_etx == 1;
 }
 
 sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
-  // todo, regex search for the different answer starts, match the command name
-  // and check if there's at least one more number. If yes, is usually success
-  // or error, if no, is success.
-  if (len <= 6) {
-    // error, msg cant contain a status code
-    throw runtime_error("data too short");
+  if (!validate_response(data, len)) {
+    return sick_err_t::CustomError;
   }
   const string answer_method = method(data, len);
   if (answer_method == "sFA") {
@@ -596,14 +640,23 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
     }
     return static_cast<sick_err_t>(status);
   } else {
-    // proper response, but might have to get parsed specifically for
-    // success/fail
-    // skip STX and method, then identify response name, then check if there is
-    // a space after it, in which case any error code is always* following. If
-    // 0, ok, otherwise not ok
-    // * retardedly, the Run command inverts this pattern. 1 = success, 0 =
-    // fail. i cant believe how stupid this is.
-    return sick_err_t::Ok;
+    vector<char> data_copy(std::distance(data, data + len), '\0');
+    std::copy(data + 1, data + len - 1, data_copy.begin());
+    char *token = strtok(&data_copy[0], " ");
+    string method(token);
+    token = strtok(NULL, " ");
+    string cmd_name(token);
+    token = strtok(NULL, " ");
+    if (token) {
+      int status_code = atoi(token);
+      if (status_ok(cmd_name, status_code)) {
+        std::cout << "Command success" << std::endl;
+        return sick_err_t::Ok;
+      } else {
+        return sick_err_t::CustomError;
+      }
+    } else
+      return sick_err_t::Ok;
   }
 }
 
@@ -618,10 +671,13 @@ static sick_err_t send_sopas_command(int sock_fd, const char *data,
   recvbuf.fill(0x00);
   int recv_result = recv(sock_fd, recvbuf.data(), 4096, 0);
   if (recv_result < 0) {
-    // error
+    std::cout << "Send sopas error: " << strerror(recv_result) << std::endl;
+    return sick_err_t::CustomError;
   }
-  std::cout << "Command answer: " << string(recvbuf.data()) << std::endl;
-  return status_from_bytes_ascii(recvbuf.data(), recv_result);
+  sick_err_t status = status_from_bytes_ascii(recvbuf.data(), recv_result);
+  std::cout << "Command answer: " << string(recvbuf.data())
+            << ". Status: " << sick_err_t_to_string(status) << std::endl;
+  return status;
 }
 
 class SOPASProtocolASCII : public SOPASProtocol {
@@ -645,7 +701,8 @@ class SOPASProtocolASCII : public SOPASProtocol {
       {LMPOUTPUTRANGE, "\x02sWN LMPoutputRange 1 +%4u %+d %+d\x03"},
       {MEEWRITEALL, "\x02sMN mEEwriteall\x03"},
       {RUN, "\x02sMN Run\x03"},
-      {LMDSCANDATA, "\x02sEN LMDscandata 1\x03"}};
+      {LMDSCANDATA, "\x02sEN LMDscandata %u\x03"},
+      {LMCSTOPMEAS, "\x02sEN LMCstopmeas\x03"}};
 
 public:
   sick_err_t set_access_mode(const uint8_t mode = 3,
@@ -733,7 +790,19 @@ public:
     if (status != sick_err_t::Ok) {
       return status;
     }
-    return send_command(LMDSCANDATA);
+    return send_command(LMDSCANDATA, 1);
+  }
+
+  void stop() override {
+    SOPASProtocol::stop();
+    sick_err_t scan_stop_result = send_command(LMDSCANDATA, 0);
+    if (scan_stop_result == sick_err_t::Ok) {
+      sick_err_t login_result = set_access_mode(3);
+      if (login_result == sick_err_t::Ok) {
+        sick_err_t stop_meas_result = send_command(LMCSTOPMEAS);
+        std::cout << "Stopped measurements." << std::endl;
+      }
+    }
   }
 };
 
@@ -745,14 +814,33 @@ int main() {
   n_scans = 0;
   SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
   sick_err_t status = proto.set_access_mode();
+  if (status != sick_err_t::Ok) {
+    std::cout << "Could not set access mode." << std::endl;
+    return 1;
+  }
   status = proto.configure_ntp_client("192.168.95.44");
+  if (status != sick_err_t::Ok) {
+    std::cout << "Could not configure ntp client" << std::endl;
+    return 2;
+  }
   status = proto.set_scan_config(LMSConfigParams{.frequency = 75,
                                                  .resolution = 1,
                                                  .start_angle = -95 * DEG2RAD,
                                                  .end_angle = 95 * DEG2RAD});
+  if (status != sick_err_t::Ok) {
+    std::cout << "Could not configure scan" << std::endl;
+    return 3;
+  }
   status = proto.save_params();
+  if (status != sick_err_t::Ok) {
+    std::cout << "Could not save params" << std::endl;
+    return 4;
+  }
   status = proto.run();
-  std::cout << sick_err_t_to_string(status) << std::endl;
+  if (status != sick_err_t::Ok) {
+    std::cout << "Could not run scanner" << std::endl;
+    return 5;
+  }
   proto.start_scan();
   std::cout << "Wait a bit for scanner..." << std::endl;
   std::this_thread::sleep_for(std::chrono::seconds(2));
