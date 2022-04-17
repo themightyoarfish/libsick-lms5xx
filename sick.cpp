@@ -38,6 +38,9 @@ struct LMSConfigParams {
   //
 };
 
+constexpr char ETX = '\x03';
+constexpr char STX = '\x02';
+
 constexpr double RAD2DEG = 180.0 / M_PI;
 constexpr double DEG2RAD = 1 / RAD2DEG;
 //
@@ -148,9 +151,7 @@ static string ip_addr_to_hex_str(const string &ip_str) {
 }
 
 struct Scan {
-  /* EIGEN_MAKE_ALIGNED_OPERTOR_NEW; */
-
-  unsigned int n_vals;
+  unsigned int size;
   VectorXf ranges;
   VectorXf intensities;
   rad start_angle;
@@ -161,7 +162,7 @@ struct Scan {
 
   chrono::system_clock::time_point time;
 
-  Scan() { n_vals = 0; }
+  Scan() { size = 0; }
 
   Scan(const Scan &other) = default;
 };
@@ -206,16 +207,11 @@ struct Channel {
 
 class ScanBatcher {
   vector<char> buffer;
-  size_t first_junk_idx;
+  size_t num_bytes_buffered;
   Scan s;
-  bool first_scan;
 
 public:
-  ScanBatcher() {
-    first_junk_idx = 0;
-    buffer.reserve(4096);
-    first_scan = true;
-  }
+  ScanBatcher() { num_bytes_buffered = 0; }
 
   static Channel parse_channel(char **token) {
     string content(*token);
@@ -253,30 +249,6 @@ public:
     }
     return cn;
   }
-  /*     def parse_channel(generator): */
-  /*         content = next(tokens) */
-  /*         scale_factor = int(next(tokens), 16) */
-  /*         if scale_factor == int("3F800000", 16): */
-  /*             scale_factor = 1 */
-  /*         elif scale_factor == int("40000000", 16): */
-  /*             scale_factor = 2 */
-  /*         else: */
-  /*             raise ValueError(f"Unexpected scale factor {scale_factor}")
-   */
-
-  /*         offset = int(next(tokens), 16) */
-  /*         start_angle_hex = next(tokens) */
-  /*         start_angle = parse_int32(start_angle_hex) / 10000 */
-
-  /*         ang_incr_hex = next(tokens) */
-  /*         ang_incr = parse_int16(ang_incr_hex) / 10000 */
-  /*         n_data = int(next(tokens), 16) */
-  /*         values = [offset + scale_factor * int(next(tokens), 16) for i in
-   * range(n_data)] */
-  /*         angles = [start_angle + i * ang_incr for i in range(n_data)] */
-  /*         values = np.array(values) */
-  /*         angles = np.array(angles) */
-  /*         return ang_incr, angles, values */
 
   static bool parse_scan_telegram(const vector<char> &buffer,
                                   size_t last_valid_idx, Scan &scan) {
@@ -409,24 +381,24 @@ public:
 
               if (scan.ranges.size() == 0) {
                 // first time -> fill nonchanging fields
-                scan.n_vals = range_cn.values.size();
-                scan.ranges = VectorXf::Zero(scan.n_vals, 1);
-                scan.intensities = VectorXf::Zero(scan.n_vals, 1);
+                scan.size = range_cn.values.size();
+                scan.ranges = VectorXf::Zero(scan.size, 1);
+                scan.intensities = VectorXf::Zero(scan.size, 1);
                 scan.ang_increment = range_cn.ang_incr;
                 scan.start_angle = angle_to_lms(range_cn.angles.front());
                 scan.end_angle = angle_to_lms(range_cn.angles.back());
-                VectorXf angles(scan.n_vals, 1);
+                VectorXf angles(scan.size, 1);
                 memcpy(angles.data(), &range_cn.angles[0],
-                       scan.n_vals * sizeof(float));
+                       scan.size * sizeof(float));
                 scan.cos_map = Eigen::cos(angles.array());
                 scan.sin_map = Eigen::sin(angles.array());
               }
 
               memcpy(scan.ranges.data(), &range_cn.values[0],
-                     scan.n_vals * sizeof(float));
+                     scan.size * sizeof(float));
               scan.ranges /= 1000;
               memcpy(scan.intensities.data(), &intensity_cn.values[0],
-                     scan.n_vals * sizeof(float));
+                     scan.size * sizeof(float));
               scan.time = stamp;
               return true;
             }
@@ -439,12 +411,11 @@ public:
     return false;
   }
 
-  simple_optional<Scan> add_data(const char *data, size_t length) {
-
+  simple_optional<Scan> add_data(const char *data_new, size_t length) {
     // check if etx found
     int etx_idx = -1;
     for (size_t i = 0; i < length; ++i) {
-      if (data[i] == '\x03') {
+      if (data_new[i] == ETX) {
         etx_idx = i;
         break;
       }
@@ -452,33 +423,44 @@ public:
 
     bool got_scan = false;
 
-    if (etx_idx >= 0) {
-      buffer.reserve(first_junk_idx - 1 + etx_idx + 1);
-      buffer.insert(buffer.begin() + first_junk_idx, data, data + etx_idx + 1);
-      first_junk_idx += etx_idx + 1;
-      if (buffer[0] == '\x02' && buffer[first_junk_idx - 1] == '\x03') {
-        if (parse_scan_telegram(buffer, first_junk_idx - 1, s)) {
+    // 1. if etx found -> append data up until etx to current buffer, parse
+    // scan, then replace by everything after etx
+    // 2. no etx found -> append all data
+    if (etx_idx < 0) {
+      buffer.reserve(num_bytes_buffered + length + 1);
+      char *buf_begin = buffer.data();
+      memcpy(buf_begin + num_bytes_buffered, data_new, length);
+      num_bytes_buffered += length;
+    } else {
+      // etx found
+      buffer.reserve(num_bytes_buffered + etx_idx + 1);
+      char *buf_begin = buffer.data();
+      memcpy(buf_begin + num_bytes_buffered, data_new, etx_idx + 1);
+      num_bytes_buffered += etx_idx + 1;
+      if (buffer[0] == STX && buffer[num_bytes_buffered - 1] == ETX) {
+        // try to parse scan telegram
+        if (parse_scan_telegram(buffer, num_bytes_buffered - 1, s)) {
           // return the scan
-          first_scan = false;
           got_scan = true;
+        } else {
+          std::cout << "Error: scan did not parse" << std::endl;
         }
       } else {
-        // this happens sometimes, how possible?
-        std::cout << "Invalid data: " << string(&buffer[0], first_junk_idx - 1)
-                  << std::endl;
+        std::cout << "Error: invalid data." << std::endl;
       }
-      first_junk_idx = 0;
+      num_bytes_buffered = 0;
 
-      // its possible that etx is not the end of the telegram, but there is new
-      // data thereafter. we cannot discard this.
-      if (etx_idx + 1 < length) {
-        buffer.insert(buffer.begin(), data + etx_idx + 1, data + length);
-        first_junk_idx += (length - (etx_idx + 1));
+      if (length > etx_idx + 1) {
+        // trailing data must be kept
+        // You'd think to check that the start token of the trailing data is
+        // STX, but the partial datagrams don't seem to have it
+        const size_t new_data_length = length - (etx_idx + 1);
+        char *buf_begin = buffer.data();
+        memcpy(buf_begin, data_new + etx_idx + 1, new_data_length);
+        num_bytes_buffered = new_data_length;
       }
-    } else {
-      buffer.insert(buffer.begin() + first_junk_idx, data, data + length);
-      first_junk_idx += length;
     }
+
     if (got_scan) {
       return simple_optional<Scan>(s);
     } else {
@@ -625,10 +607,10 @@ static bool validate_response(const char *data, size_t len) {
   // recv, but the data then comes with your next call (should you try one)
   size_t n_stx = 0, n_etx = 0;
   for (int i = 0; i < len; ++i) {
-    if (data[i] == '\x02') {
+    if (data[i] == STX) {
       ++n_stx;
     }
-    if (data[i] == '\x03') {
+    if (data[i] == ETX) {
       ++n_etx;
     }
   }
