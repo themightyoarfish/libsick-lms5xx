@@ -73,13 +73,18 @@ enum class sick_err_t : uint8_t {
   Sopas_Error_HubAddressBlankExpected,
   Sopas_Error_AsyncMethodsAreSuppressed,
   Sopas_Error_ComplexArraysNotSupported,
-  CustomError
+  CustomError,
+  CustomErrorInvalidDatagram,
+  CustomErrorCommandFailure,
+  CustomErrorSocketSend,
+  CustomErrorSocketRecv,
+  _LAST
 };
 
 const string sick_err_t_to_string(const sick_err_t &err) {
   const size_t idx = static_cast<size_t>(err);
-  constexpr size_t last_idx = static_cast<size_t>(sick_err_t::CustomError);
-  const array<string, last_idx + 1> strerrors{
+  constexpr size_t last_idx = static_cast<size_t>(sick_err_t::_LAST);
+  const array<string, last_idx> strerrors{
       "Ok",
       "Sopas_Error_METHODIN_ACCESSDENIED",
       "Sopas_Error_METHODIN_UNKNOWNINDEX",
@@ -107,7 +112,11 @@ const string sick_err_t_to_string(const sick_err_t &err) {
       "Sopas_Error_HubAddressBlankExpected",
       "Sopas_Error_AsyncMethodsAreSuppressed",
       "Sopas_Error_ComplexArraysNotSupported",
-      "CustomError"};
+      "CustomError",
+      "CustomErrorInvalidDatagram",
+      "CustomErrorCommandFailure",
+      "CustomErrorSocketSend",
+      "CustomErrorSocketRecv"};
   return strerrors[static_cast<size_t>(err)];
 }
 
@@ -628,7 +637,7 @@ static bool validate_response(const char *data, size_t len) {
 
 sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
   if (!validate_response(data, len)) {
-    return sick_err_t::CustomError;
+    return sick_err_t::CustomErrorInvalidDatagram;
   }
   const string answer_method = method(data, len);
   if (answer_method == "sFA") {
@@ -641,6 +650,7 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
     }
     return static_cast<sick_err_t>(status);
   } else {
+    // copy data because strtok modifies
     vector<char> data_copy(std::distance(data, data + len), '\0');
     std::copy(data + 1, data + len - 1, data_copy.begin());
     char *token = strtok(&data_copy[0], " ");
@@ -654,7 +664,7 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
         std::cout << "Command success" << std::endl;
         return sick_err_t::Ok;
       } else {
-        return sick_err_t::CustomError;
+        return sick_err_t::CustomErrorCommandFailure;
       }
     } else
       return sick_err_t::Ok;
@@ -675,7 +685,7 @@ send_sopas_command_and_check_answer(int sock_fd, const char *data, size_t len) {
   int send_result = send_sopas_command(sock_fd, data, len);
   if (send_result < 0) {
     std::cout << "Could not send sopas command" << std::endl;
-    return sick_err_t::CustomError;
+    return sick_err_t::CustomErrorSocketSend;
   }
   array<char, 4096> recvbuf;
   // fill with 0s so we have a null-terminated string
@@ -683,7 +693,7 @@ send_sopas_command_and_check_answer(int sock_fd, const char *data, size_t len) {
   int recv_result = receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
   if (recv_result < 0) {
     std::cout << "Send sopas error: " << strerror(recv_result) << std::endl;
-    return sick_err_t::CustomError;
+    return sick_err_t::CustomErrorSocketRecv;
   }
   sick_err_t status = status_from_bytes_ascii(recvbuf.data(), recv_result);
   std::cout << "Command answer: " << string(recvbuf.data())
