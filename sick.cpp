@@ -65,7 +65,7 @@ constexpr char STX = '\x02';
 
 constexpr double RAD2DEG = 180.0 / M_PI;
 constexpr double DEG2RAD = 1 / RAD2DEG;
-//
+
 // convert to degrees and add offset so 0 is straight ahead
 static deg angle_to_lms(rad angle_in) { return angle_in * RAD2DEG + 90; }
 static rad angle_from_lms(deg angle_in) { return (angle_in - 90) * DEG2RAD; }
@@ -160,10 +160,10 @@ static string ip_addr_to_hex_str(const string &ip_str) {
   int sprintf_result =
       sprintf(out, "%02X %02X %02X %02X",
               // clang-format off
-                               (ip_as_int & 0xFF000000) >> 24,
-                               (ip_as_int & 0x00FF0000) >> 16,
-                               (ip_as_int & 0x0000FF00) >> 8,
-                               (ip_as_int & 0x000000FF) >> 0
+               (ip_as_int >> 24) & 0xFF,
+               (ip_as_int >> 16) & 0xFF,
+               (ip_as_int >> 8)  & 0xFF,
+               ip_as_int         & 0xFF
               // clang-format on
       );
   if (sprintf_result < 0) {
