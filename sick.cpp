@@ -38,6 +38,28 @@ struct LMSConfigParams {
   //
 };
 
+class TokenBuffer {
+  vector<char> tokens_copy_;
+  char *cur_tok_;
+  string delim_;
+
+public:
+  TokenBuffer(const char *tokens, size_t len, const string &delim = " ") {
+    delim_ = delim;
+    tokens_copy_.resize(len + 1, '\0');
+    memcpy(&tokens_copy_[0], tokens, len);
+    cur_tok_ = strtok(&tokens_copy_[0], delim.c_str());
+  }
+
+  bool has_next() const { return cur_tok_ != nullptr; }
+
+  const char *next() {
+    const char *ret = cur_tok_;
+    cur_tok_ = strtok(nullptr, delim_.c_str());
+    return ret;
+  }
+};
+
 constexpr char ETX = '\x03';
 constexpr char STX = '\x02';
 
@@ -213,35 +235,28 @@ class ScanBatcher {
 public:
   ScanBatcher() { num_bytes_buffered = 0; }
 
-  static Channel parse_channel(char **token) {
-    string content(*token);
-    *token = strtok(NULL, " ");
+  static Channel parse_channel(TokenBuffer &buf) {
+    string content(buf.next());
 
-    string scale_factor_s(*token);
+    string scale_factor_s(buf.next());
     unsigned int scale_factor = scale_factor_s == "3F800000" ? 1 : 2;
-    *token = strtok(NULL, " ");
 
     char *p;
-    const long offset = strtol(*token, &p, 16);
-    *token = strtok(NULL, " ");
+    const long offset = strtol(buf.next(), &p, 16);
 
     unsigned int start_angle_u;
     double start_angle;
-    sscanf(*token, "%X  ", &start_angle_u);
+    sscanf(buf.next(), "%X  ", &start_angle_u);
     start_angle = static_cast<int>(start_angle_u) / 10000.0;
-    *token = strtok(NULL, " ");
 
-    const double ang_incr = strtol(*token, &p, 16) / 10000.0;
-    *token = strtok(NULL, " ");
+    const double ang_incr = strtol(buf.next(), &p, 16) / 10000.0;
 
-    const long n_values = strtol(*token, &p, 16);
-    *token = strtok(NULL, " ");
+    const long n_values = strtol(buf.next(), &p, 16);
 
     Channel cn(content, ang_incr, n_values);
     for (int i = 0; i < n_values; ++i) {
-      const long value = strtol(*token, &p, 16);
+      const long value = strtol(buf.next(), &p, 16);
       cn.values.emplace_back(offset + scale_factor * value);
-      *token = strtok(NULL, " ");
     }
 
     for (int i = 0; i < n_values; ++i) {
@@ -252,71 +267,46 @@ public:
 
   static bool parse_scan_telegram(const vector<char> &buffer,
                                   size_t last_valid_idx, Scan &scan) {
-    const char *begin = &buffer[0];
-    const char *end = begin + last_valid_idx + 1;
-    vector<char> copy(std::distance(begin, end) + 1, '\0');
-    std::copy(begin, end, copy.begin());
-    char *token = strtok(&copy[0], " ");
+    TokenBuffer buf(&buffer[0], last_valid_idx + 1);
 
-    string method(token);
-    token = strtok(NULL, " ");
-    string command(token);
-    token = strtok(NULL, " ");
-    string proto_version(token);
-    token = strtok(NULL, " ");
-    string device_num(token);
-    token = strtok(NULL, " ");
+    string method(buf.next());
+    string command(buf.next());
+    string proto_version(buf.next());
+    string device_num(buf.next());
     char *p;
-    const int serial_num = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
-    string device_status1(token);
-    token = strtok(NULL, " ");
-    string device_status2(token);
-    token = strtok(NULL, " ");
-    string num_telegrams(token);
-    token = strtok(NULL, " ");
-    string num_scans(token);
-    token = strtok(NULL, " ");
-    const long time_since_boot_us = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
-    const long time_of_transmission_us = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
-    string status_digital_input_pins1(token);
-    token = strtok(NULL, " ");
-    string status_digital_input_pins2(token);
-    token = strtok(NULL, " ");
-    string status_digital_output_pins1(token);
-    token = strtok(NULL, " ");
-    string status_digital_output_pins2(token);
-    token = strtok(NULL, " ");
-    string layer_angle(token);
+    const int serial_num = strtol(buf.next(), &p, 16);
+    string device_status1(buf.next());
+    string device_status2(buf.next());
+    string num_telegrams(buf.next());
+    string num_scans(buf.next());
+    const long time_since_boot_us = strtol(buf.next(), &p, 16);
+    const long time_of_transmission_us = strtol(buf.next(), &p, 16);
+    string status_digital_input_pins1(buf.next());
+    string status_digital_input_pins2(buf.next());
+    string status_digital_output_pins1(buf.next());
+    string status_digital_output_pins2(buf.next());
+    string layer_angle(buf.next());
     // if layer_angle != 0: error
-    token = strtok(NULL, " ");
-    const double scan_freq = strtol(token, &p, 16) / 100.0;
-    token = strtok(NULL, " ");
-    const long measurement_freq = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
-    const long encoder = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
+    const double scan_freq = strtol(buf.next(), &p, 16) / 100.0;
+    const long measurement_freq = strtol(buf.next(), &p, 16);
+    const long encoder = strtol(buf.next(), &p, 16);
     if (encoder != 0) {
       // pos
-      token = strtok(NULL, " ");
+      buf.next();
       // speed
-      token = strtok(NULL, " ");
+      buf.next();
     }
-    const long num_16bit_channels = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
+    const long num_16bit_channels = strtol(buf.next(), &p, 16);
     if (num_16bit_channels != 1) {
       throw std::runtime_error("num_16bit_channels != 1");
     }
 
     vector<Channel> channels_16bit(num_16bit_channels);
     for (int i = 0; i < num_16bit_channels; ++i) {
-      channels_16bit[i] = parse_channel(&token);
+      channels_16bit[i] = parse_channel(buf);
     }
 
-    const long num_8bit_channels = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
+    const long num_8bit_channels = strtol(buf.next(), &p, 16);
     if (num_8bit_channels != 1) {
       throw std::runtime_error("num_8bit_channels = " +
                                to_string(num_8bit_channels));
@@ -324,38 +314,27 @@ public:
 
     vector<Channel> channels_8bit(num_8bit_channels);
     for (int i = 0; i < num_8bit_channels; ++i) {
-      channels_8bit[i] = parse_channel(&token);
+      channels_8bit[i] = parse_channel(buf);
     }
 
-    const long position = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
-    const long name_exists = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
+    const long position = strtol(buf.next(), &p, 16);
+    const long name_exists = strtol(buf.next(), &p, 16);
     if (name_exists == 1) {
-      token = strtok(NULL, " ");
-      token = strtok(NULL, " ");
+      buf.next();
+      buf.next();
     }
     // always 0
-    const long comment_exists = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
+    const long comment_exists = strtol(buf.next(), &p, 16);
 
-    const long time_exists = strtol(token, &p, 16);
-    token = strtok(NULL, " ");
+    const long time_exists = strtol(buf.next(), &p, 16);
     if (time_exists == 1) {
-      const long y = strtol(token, &p, 16);
-      token = strtok(NULL, " ");
-      const long mo = strtol(token, &p, 16);
-      token = strtok(NULL, " ");
-      const long d = strtol(token, &p, 16);
-      token = strtok(NULL, " ");
-      const long h = strtol(token, &p, 16);
-      token = strtok(NULL, " ");
-      const long mi = strtol(token, &p, 16);
-      token = strtok(NULL, " ");
-      const long s = strtol(token, &p, 16);
-      token = strtok(NULL, " ");
-      const long us = strtol(token, &p, 16);
-      token = strtok(NULL, " ");
+      const long y = strtol(buf.next(), &p, 16);
+      const long mo = strtol(buf.next(), &p, 16);
+      const long d = strtol(buf.next(), &p, 16);
+      const long h = strtol(buf.next(), &p, 16);
+      const long mi = strtol(buf.next(), &p, 16);
+      const long s = strtol(buf.next(), &p, 16);
+      const long us = strtol(buf.next(), &p, 16);
       chrono::system_clock::time_point stamp;
       stamp += years(y) + months(mo) + days(d) + chrono::hours(h) +
                chrono::minutes(mi) + chrono::seconds(s) +
@@ -632,16 +611,11 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
     }
     return static_cast<sick_err_t>(status);
   } else {
-    // copy data because strtok modifies
-    vector<char> data_copy(std::distance(data, data + len), '\0');
-    std::copy(data + 1, data + len - 1, data_copy.begin());
-    char *token = strtok(&data_copy[0], " ");
-    string method(token);
-    token = strtok(NULL, " ");
-    string cmd_name(token);
-    token = strtok(NULL, " ");
-    if (token) {
-      int status_code = atoi(token);
+    TokenBuffer buf(data, len);
+    string method(buf.next());
+    string cmd_name(buf.next());
+    if (buf.has_next()) {
+      int status_code = atoi(buf.next());
       if (status_ok(cmd_name, status_code)) {
         std::cout << "Command success" << std::endl;
         return sick_err_t::Ok;
