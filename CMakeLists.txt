@@ -5,7 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Eigen3 3.3.9 REQUIRED)
 set(SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/sick.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/example.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/parsing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/network.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util.cpp
