@@ -4,7 +4,8 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Eigen3 3.3.9 REQUIRED)
-add_executable(run-lms ${CMAKE_CURRENT_SOURCE_DIR}/sick.cpp)
+set(SRCS ${CMAKE_CURRENT_SOURCE_DIR}/sick.cpp ${CMAKE_CURRENT_SOURCE_DIR}/parsing.cpp)
+add_executable(run-lms ${SRCS})
 target_link_libraries(run-lms Eigen3::Eigen)
 
 if(UNIX AND NOT APPLE)
@@ -14,5 +15,6 @@ endif()
 
 find_package(PCL REQUIRED)
 target_include_directories(run-lms PRIVATE ${PCL_INCLUDE_DIRS})
+target_include_directories(run-lms PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(run-lms ${PCL_LIBRARIES})
 add_definitions(${PCL_DEFINITIONS})
