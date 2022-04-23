@@ -9,14 +9,14 @@
 #include <unistd.h>
 #include <vector>
 
-#include "config.hpp"
-#include "network.hpp"
-#include "parsing.hpp"
-#include "sopas.hpp"
-#include "types.hpp"
+#include <sick-lms5xx/config.hpp>
+#include <sick-lms5xx/network.hpp>
+#include <sick-lms5xx/parsing.hpp>
+#include <sick-lms5xx/sopas.hpp>
+#include <sick-lms5xx/types.hpp>
 
 #ifdef WITH_PCL
-#include "pcl.hpp"
+#include <sick-lms5xx/pcl.hpp>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>

@@ -1,5 +1,5 @@
-#include "parsing.hpp"
-#include "pcl.hpp"
+#include <sick-lms5xx/parsing.hpp>
+#include <sick-lms5xx/pcl.hpp>
 
 namespace sick {
 namespace pcl {

@@ -1,6 +1,6 @@
 #pragma once
-#include "config.hpp"
-#include "util.hpp"
+#include <sick-lms5xx/config.hpp>
+#include <sick-lms5xx/util.hpp>
 #include <Eigen/Core>
 #include <chrono>
 #include <iostream>

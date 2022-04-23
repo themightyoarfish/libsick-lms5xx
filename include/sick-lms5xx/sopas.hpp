@@ -1,6 +1,6 @@
 #pragma once
-#include "network.hpp"
-#include "parsing.hpp"
+#include <sick-lms5xx/network.hpp>
+#include <sick-lms5xx/parsing.hpp>
 #include <atomic>
 #include <iostream>
 #include <map>

@@ -1,4 +1,4 @@
-#include "sopas.hpp"
+#include <sick-lms5xx/sopas.hpp>
 
 namespace sick {
 

@@ -1,4 +1,4 @@
-#include "network.hpp"
+#include <sick-lms5xx/network.hpp>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>

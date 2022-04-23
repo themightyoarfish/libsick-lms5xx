@@ -1,6 +1,6 @@
 #pragma once
-#include "config.hpp"
-#include "types.hpp"
+#include <sick-lms5xx/config.hpp>
+#include <sick-lms5xx/types.hpp>
 
 namespace sick {
 

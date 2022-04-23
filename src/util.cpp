@@ -1,4 +1,4 @@
-#include "util.hpp"
+#include <sick-lms5xx/util.hpp>
 namespace sick
 {
 deg angle_to_lms(rad angle_in) { return angle_in * RAD2DEG + 90; }
