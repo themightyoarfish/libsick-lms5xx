@@ -9,6 +9,7 @@ set(SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/parsing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/network.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/sopas.cpp
     )
 add_executable(run-lms)
 target_link_libraries(run-lms Eigen3::Eigen)
