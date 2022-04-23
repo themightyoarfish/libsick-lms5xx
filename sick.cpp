@@ -5,9 +5,6 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
@@ -15,22 +12,35 @@
 #include "config.hpp"
 #include "network.hpp"
 #include "parsing.hpp"
-#include "pcl.hpp"
 #include "sopas.hpp"
 #include "types.hpp"
+
+#ifdef WITH_PCL
+#include "pcl.hpp"
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#endif
 
 using namespace std;
 using namespace sick;
 
 static atomic<int> n_scans;
 
+#ifdef WITH_PCL
 static void cbk(const Scan &scan) {
-  const auto cloud = cloud_from_scan(scan);
-  pcl::io::savePCDFileASCII(
+  const auto cloud = sick::pcl::cloud_from_scan(scan);
+  ::pcl::io::savePCDFileASCII(
       string("clouds/cloud-") + to_string(n_scans) + ".pcd", cloud);
   std::cout << "Got scan with " << cloud.size() << " points." << std::endl;
   ++n_scans;
 }
+#else
+static void cbk(const Scan &scan) {
+  std::cout << "Got scan with " << scan.size << " points." << std::endl;
+  ++n_scans;
+}
+#endif
 
 int main() {
   n_scans = 0;
@@ -45,10 +55,11 @@ int main() {
     std::cout << "Could not configure ntp client" << std::endl;
     return 2;
   }
-  status = proto.set_scan_config(lms5xx::LMSConfigParams{.frequency = 25,
-                                                 .resolution = 0.1667,
-                                                 .start_angle = -95 * DEG2RAD,
-                                                 .end_angle = 95 * DEG2RAD});
+  status = proto.set_scan_config(
+      lms5xx::LMSConfigParams{.frequency = 25,
+                              .resolution = 0.1667,
+                              .start_angle = -95 * DEG2RAD,
+                              .end_angle = 95 * DEG2RAD});
   if (status != sick_err_t::Ok) {
     std::cout << "Could not configure scan" << std::endl;
     return 3;

@@ -8,8 +8,9 @@ set(SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/sick.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/parsing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/network.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/util.cpp
     )
-add_executable(run-lms ${SRCS})
+add_executable(run-lms)
 target_link_libraries(run-lms Eigen3::Eigen)
 
 if(UNIX AND NOT APPLE)
@@ -17,8 +18,14 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(run-lms Threads::Threads)
 endif()
 
-find_package(PCL REQUIRED)
 target_include_directories(run-lms PRIVATE ${PCL_INCLUDE_DIRS})
 target_include_directories(run-lms PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(run-lms ${PCL_LIBRARIES})
-add_definitions(${PCL_DEFINITIONS})
+option(WITH_PCL "Enable PCL support" OFF)
+if (WITH_PCL)
+    target_compile_definitions(run-lms PRIVATE WITH_PCL)
+    find_package(PCL REQUIRED)
+    target_link_libraries(run-lms ${PCL_LIBRARIES})
+    add_definitions(${PCL_DEFINITIONS})
+    list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/pcl.cpp)
+endif()
+target_sources(run-lms PRIVATE ${SRCS})
