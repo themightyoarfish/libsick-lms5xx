@@ -4,7 +4,11 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Eigen3 3.3.9 REQUIRED)
-set(SRCS ${CMAKE_CURRENT_SOURCE_DIR}/sick.cpp ${CMAKE_CURRENT_SOURCE_DIR}/parsing.cpp)
+set(SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/sick.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/parsing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/network.cpp
+    )
 add_executable(run-lms ${SRCS})
 target_link_libraries(run-lms Eigen3::Eigen)
 
