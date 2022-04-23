@@ -11,12 +11,13 @@ set(SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/util.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/sopas.cpp
     )
+set(LIBS Eigen3::Eigen)
 add_executable(run-lms)
 target_link_libraries(run-lms Eigen3::Eigen)
 
 if(UNIX AND NOT APPLE)
     find_package(Threads REQUIRED)
-    target_link_libraries(run-lms Threads::Threads)
+    list(APPEND LIBS Threads::Threads)
 endif()
 
 target_include_directories(run-lms PRIVATE ${PCL_INCLUDE_DIRS})
@@ -25,8 +26,25 @@ option(WITH_PCL "Enable PCL support" OFF)
 if (WITH_PCL)
     target_compile_definitions(run-lms PRIVATE WITH_PCL)
     find_package(PCL REQUIRED)
-    target_link_libraries(run-lms ${PCL_LIBRARIES})
     add_definitions(${PCL_DEFINITIONS})
     list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/pcl.cpp)
+    list(APPEND LIBS ${PCL_LIBRARIES})
 endif()
 target_sources(run-lms PRIVATE ${SRCS})
+target_link_libraries(run-lms ${LIBS})
+
+add_library(sick-lms5xx ${SRCS})
+target_include_directories(sick-lms5xx
+    PUBLIC
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        ${EIGEN3_INCLUDE_DIRS}
+)
+if (WITH_PCL)
+target_include_directories(sick-lms5xx
+    PUBLIC
+    ${PCL_DEFINITIONS}
+)
+target_compile_definitions(sick-lms5xx PUBLIC ${PCL_DEFINITIONS} WITH_PCL)
+target_link_libraries(sick-lms5xx PUBLIC ${LIBS})
+endif()
