@@ -51,9 +51,10 @@ public:
     setsockopt(sock_fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     setsockopt(sock_fd_, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
-    // TODO: connect timeout
-    int connect_result = connect(
-        sock_fd_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
+    constexpr auto connect_timeout = std::chrono::seconds(1);
+    int connect_result = connect_with_timeout(
+        sock_fd_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr),
+        connect_timeout);
     if (connect_result < 0) {
       throw std::runtime_error("Unable to connect to scanner.");
     }
@@ -154,7 +155,7 @@ class SOPASProtocolASCII : public SOPASProtocol {
 public:
   sick_err_t set_access_mode(const uint8_t mode = 3,
                              const uint32_t pw_hash = 0xF4724744) override {
-      std::array<char, 128> buffer;
+    std::array<char, 128> buffer;
     // authorized client mode with pw hash from telegram listing
     int bytes_written = std::sprintf(
         buffer.data(), command_masks_[SETACCESSMODE].c_str(), mode, pw_hash);
@@ -253,7 +254,7 @@ public:
     int len = make_command_msg(buffer.data(), LMDSCANDATA, 0);
     int bytes_sent = send_sopas_command(sock_fd_, buffer.data(), len);
     if (bytes_sent < 0) {
-        throw std::runtime_error("Failed to send.");
+      throw std::runtime_error("Failed to send.");
     }
     while (true) {
       int bytes_received = receive_sopas_reply(sock_fd_, &buffer[0], 4096);
