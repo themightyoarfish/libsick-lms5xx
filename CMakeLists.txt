@@ -28,10 +28,10 @@ if(UNIX AND NOT APPLE)
     list(APPEND LIBS Threads::Threads)
 endif()
 
-option(WITH_PCL "Enable PCL support" OFF)
+option(WITH_PCL "Enable PCL support" ON)
 
-if (WITH_PCL)
-    find_package(PCL REQUIRED)
+if(WITH_PCL)
+    find_package(PCL REQUIRED COMPONENTS common io)
     list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/pcl.cpp)
     list(APPEND HDRS ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/pcl.hpp)
     list(APPEND LIBS ${PCL_LIBRARIES})
@@ -43,6 +43,7 @@ if(BUILD_EXAMPLE)
     target_include_directories(example PRIVATE SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_sources(example PRIVATE ${SRCS})
     target_link_libraries(example PRIVATE ${LIBS})
+    target_link_directories(example PRIVATE ${PCL_LIBRARY_DIRS})
     if (WITH_PCL)
         target_include_directories(example PRIVATE ${PCL_INCLUDE_DIRS})
         target_compile_definitions(example PRIVATE ${PCL_DEFINITIONS})
@@ -50,7 +51,7 @@ if(BUILD_EXAMPLE)
     endif()
 endif()
 
-add_library(${PROJECT_NAME} ${SRCS})
+add_library(${PROJECT_NAME} SHARED ${SRCS})
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         $<INSTALL_INTERFACE:include>
@@ -60,8 +61,10 @@ target_include_directories(${PROJECT_NAME}
 if (WITH_PCL)
     target_include_directories(${PROJECT_NAME} PUBLIC ${PCL_INCLUDE_DIRS})
     target_compile_definitions(${PROJECT_NAME} PRIVATE ${PCL_DEFINITIONS} WITH_PCL)
-    target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBS})
+    target_link_directories(${PROJECT_NAME} PUBLIC ${PCL_LIBRARY_DIRS})
 endif()
+
+target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBS})
 
 include(GNUInstallDirs)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_UPPER})
