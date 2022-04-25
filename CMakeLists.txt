@@ -18,7 +18,8 @@ set(HDRS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/network.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/util.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/sopas.hpp
-    )
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/config.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/types.hpp)
 
 set(LIBS Eigen3::Eigen)
 
