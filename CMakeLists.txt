@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(sick-lms5xx VERSION 0.1.0 LANGUAGES C CXX)
+set(PROJECT_NAME_UPPER SickLMS5xx)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -17,27 +19,35 @@ set(HDRS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/util.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/sopas.hpp
     )
+
 set(LIBS Eigen3::Eigen)
-add_executable(example)
 
 if(UNIX AND NOT APPLE)
     find_package(Threads REQUIRED)
     list(APPEND LIBS Threads::Threads)
 endif()
 
-target_include_directories(example PRIVATE ${PCL_INCLUDE_DIRS})
-target_include_directories(example PRIVATE SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/include)
 option(WITH_PCL "Enable PCL support" OFF)
+
 if (WITH_PCL)
-    target_compile_definitions(example PRIVATE WITH_PCL)
     find_package(PCL REQUIRED)
-    target_compile_definitions(example PRIVATE ${PCL_DEFINITIONS})
     list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/pcl.cpp)
     list(APPEND HDRS ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/pcl.hpp)
     list(APPEND LIBS ${PCL_LIBRARIES})
 endif()
-target_sources(example PRIVATE ${SRCS})
-target_link_libraries(example ${LIBS})
+
+option(BUILD_EXAMPLE "Build example code" ON)
+if(BUILD_EXAMPLE)
+    add_executable(example)
+    target_include_directories(example PRIVATE SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_sources(example PRIVATE ${SRCS})
+    target_link_libraries(example PRIVATE ${LIBS})
+    if (WITH_PCL)
+        target_include_directories(example PRIVATE ${PCL_INCLUDE_DIRS})
+        target_compile_definitions(example PRIVATE ${PCL_DEFINITIONS})
+        target_compile_definitions(example PRIVATE WITH_PCL)
+    endif()
+endif()
 
 add_library(${PROJECT_NAME} ${SRCS})
 target_include_directories(${PROJECT_NAME}
@@ -47,16 +57,11 @@ target_include_directories(${PROJECT_NAME}
         ${EIGEN3_INCLUDE_DIRS}
 )
 if (WITH_PCL)
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-    ${PCL_DEFINITIONS}
-    target_compile_definitions(${PROJECT_NAME} PUBLIC ${PCL_DEFINITIONS})
-)
-target_compile_definitions(${PROJECT_NAME} PUBLIC ${PCL_DEFINITIONS} WITH_PCL)
-target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBS})
+    target_include_directories(${PROJECT_NAME} PUBLIC ${PCL_INCLUDE_DIRS})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ${PCL_DEFINITIONS} WITH_PCL)
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBS})
 endif()
 
-set(PROJECT_NAME_UPPER SickLMS5xx)
 include(GNUInstallDirs)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_UPPER})
 
