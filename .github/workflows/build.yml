@@ -12,8 +12,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-18.04]
-        build_arg1: [WITH_PCL=ON, WITH_PCL=OFF]
-        build_arg2: [BUILD_EXAMPLE=ON, BUILD_EXAMPLE=OFF]
+        build_arg1: [WITH_PCL=ON]
+        build_arg2: [BUILD_EXAMPLE=ON]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -26,12 +26,12 @@ jobs:
       - name: "Setup deps ubuntu"
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
-          apt -y update
-          apt -y install libeigen-dev
-          apt -y install libpcl-dev
+          sudo apt -y update
+          sudo apt -y install libeigen3-dev
+          sudo apt -y install libpcl-dev
       - name: build
         run: |
-          cd $GITHUB_WORKSPACE/sick-lms5xx
+          cd $GITHUB_WORKSPACE/
           mkdir build && cd build
           cmake .. -D${{ matrix.build_arg1 }} -D${{ matrix.build_arg2 }}
-          make install
+          sudo make install
