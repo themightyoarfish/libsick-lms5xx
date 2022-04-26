@@ -65,10 +65,10 @@ simple_optional<Scan> ScanBatcher::add_data(const char *data_new,
         // return the scan
         got_scan = true;
       } else {
-        std::cout << "Error: scan did not parse" << std::endl;
+        /* std::cout << "Error: scan did not parse" << std::endl; */
       }
     } else {
-      std::cout << "Error: invalid data." << std::endl;
+      /* std::cout << "Error: invalid data." << std::endl; */
     }
     num_bytes_buffered = 0;
 
@@ -313,7 +313,6 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
     if (buf.has_next()) {
       int status_code = atoi(buf.next());
       if (status_ok(cmd_name, status_code)) {
-        std::cout << "Command success" << std::endl;
         return sick_err_t::Ok;
       } else {
         return sick_err_t::CustomErrorCommandFailure;

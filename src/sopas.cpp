@@ -42,7 +42,6 @@ sick_err_t SOPASProtocol::start_scan() {
     while (!stop_.load()) {
       int read_bytes = recv(sock_fd_, buffer.data(), buffer.size(), 0);
       if (read_bytes < 0) {
-        std::cout << "Scan recv: " << strerror(errno) << std::endl;
       } else {
         simple_optional<Scan> maybe_s =
             batcher_.add_data(buffer.data(), read_bytes);
@@ -71,10 +70,8 @@ int send_sopas_command(int sock_fd, const char *data, size_t len) {
 
 sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
                                                size_t len) {
-  std::cout << "Command: " << std::string(data, len) << std::endl;
   int send_result = send_sopas_command(sock_fd, data, len);
   if (send_result < 0) {
-    std::cout << "Could not send sopas command" << std::endl;
     return sick_err_t::CustomErrorSocketSend;
   }
   std::array<char, 4096> recvbuf;
@@ -82,12 +79,9 @@ sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
   recvbuf.fill(0x00);
   int recv_result = receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
   if (recv_result < 0) {
-    std::cout << "Send sopas error: " << strerror(recv_result) << std::endl;
     return sick_err_t::CustomErrorSocketRecv;
   }
   sick_err_t status = status_from_bytes_ascii(recvbuf.data(), recv_result);
-  std::cout << "Command answer: " << std::string(recvbuf.data())
-            << ". Status: " << sick_err_t_to_string(status) << std::endl;
   return status;
 }
 
@@ -183,20 +177,20 @@ void SOPASProtocolASCII::stop() {
         if (login_result == sick_err_t::Ok) {
           sick_err_t stop_meas_result = send_command(LMCSTOPMEAS);
           if (stop_meas_result == sick_err_t::Ok) {
-            std::cout << "Stopped measurements." << std::endl;
+            /* std::cout << "Stopped measurements." << std::endl; */
           } else {
-            std::cout << "Failed to stop measurements." << std::endl;
+            /* std::cout << "Failed to stop measurements." << std::endl; */
           }
         } else {
-          std::cout << "Login failed." << std::endl;
+          /* std::cout << "Login failed." << std::endl; */
         }
       } else {
-        std::cout << "Scan stop cmd failed: " << sick_err_t_to_string(status)
-                  << std::endl;
+        /* std::cout << "Scan stop cmd failed: " << sick_err_t_to_string(status) */
+        /*           << std::endl; */
       }
       return;
     } else {
-      std::cout << "Skipping trailing data ..." << std::endl;
+      /* std::cout << "Skipping trailing data ..." << std::endl; */
     }
   }
 }

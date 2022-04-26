@@ -3,7 +3,6 @@
 #include <sick-lms5xx/util.hpp>
 #include <Eigen/Core>
 #include <chrono>
-#include <iostream>
 #include <string>
 #include <vector>
 
