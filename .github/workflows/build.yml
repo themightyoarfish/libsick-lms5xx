@@ -18,6 +18,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+      - name: "Install new cmake"
+        run: |
+          sudo bash $GITHUB_WORKSPACE/scripts/install_cmake.bash
+          echo "/usr/local/bin" >> $GITHUB_PATH
       - name: "Setup deps macos"
         if: ${{ startsWith(matrix.os, 'macos') }}
         run: |
@@ -27,8 +31,8 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
           sudo apt -y update
+          sudo apt -y install wget
           sudo apt -y install libeigen3-dev
-          sudo apt -y install libpcl-dev
       - name: build
         run: |
           cd $GITHUB_WORKSPACE/
