@@ -10,3 +10,7 @@ with all LMS5xx scanners, though this has not been tested.
 # Compatibility
 
 Uses BSD sockets and should therefore run on Linux and MacOS.
+
+# Disclaimer
+
+Not affiliated with [Sick AG](https://www.sick.com/de/en/)]
