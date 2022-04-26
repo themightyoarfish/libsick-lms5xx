@@ -64,21 +64,28 @@ if (WITH_PCL)
     target_link_directories(${PROJECT_NAME} PUBLIC ${PCL_LIBRARY_DIRS})
 endif()
 
+# make eigen, pcl an threads transitive dependencies of dependent projects
 target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBS})
 
 include(GNUInstallDirs)
+
+# install cmake config script to lib/cmake/SickLMS5xx/...
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_UPPER})
 
+# configure install of the library and associate it with an export name
 install(TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}-targets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+# use uppercased name for the library's export name (whatever that is)
 set_target_properties(${PROJECT_NAME} PROPERTIES EXPORT_NAME ${PROJECT_NAME_UPPER})
 
+# install the header files
 install(FILES ${HDRS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sick-lms5xx)
 
+# install the export file for the exported targets. Prepend SickLMS5xx:: to the target
 install(EXPORT ${PROJECT_NAME}-targets
   FILE
   ${PROJECT_NAME_UPPER}Targets.cmake
@@ -88,6 +95,7 @@ install(EXPORT ${PROJECT_NAME}-targets
     ${INSTALL_CONFIGDIR}
 )
 
+# make the version selection scropt
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}ConfigVersion.cmake
@@ -100,12 +108,14 @@ configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME_UPP
     INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
 )
 
+# install the cmake config and config version scripts
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}Config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}ConfigVersion.cmake
     DESTINATION ${INSTALL_CONFIGDIR}
 )
 
+# export the export so this project can be used with add_subdirectory()
 export(EXPORT ${PROJECT_NAME}-targets FILE
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}Targets.cmake NAMESPACE
     ${PROJECT_NAME_UPPER}::)
