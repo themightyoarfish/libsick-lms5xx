@@ -1,35 +1,37 @@
 name: Build project
 on:
-    schedule:
-        - cron: '0 * * * *'
-    push:
-        branches:
-            - '*'
-            - '!master'
+  schedule:
+    - cron: '0 * * * *'
+
+  push:
+    branches:
+      - '*'
+
 jobs:
-    build:
-        strategy:
-            matrix:
-                os: [ubuntu-18.04, ubuntu-20.04, macos-12, macos-11, macos-10.15]
-                build_arg1: [WITH_PCL=ON, WITH_PCL=OFF]
-                build_arg2: [BUILD_EXAMPLE=ON, BUILD_EXAMPLE=OFF]
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-20.04, macos-12, macos-11, macos-10.15]
+        build_arg1: [WITH_PCL=ON, WITH_PCL=OFF]
+        build_arg2: [BUILD_EXAMPLE=ON, BUILD_EXAMPLE=OFF]
 
     runs-on: ${{ matrix.os }}
     steps:
-        - uses: actions/checkout@v3
-        - name: "Setup deps"
-          if: ${{ startsWith(matrix.os), 'macos' }}
-            run: |
-                brew install eigen
-                brew install pcl
-          if: ${{ startsWith(matrix.os), 'ubuntu' }}
-            run: |
-                apt -y update
-                apt -y install libeigen-dev
-                apt -y install libpcl-dev
+      - uses: actions/checkout@v3
+      - name: "Setup deps macos"
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: |
+          brew install eigen
+          brew install pcl
+      - name: "Setup deps ubuntu"
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          apt -y update
+          apt -y install libeigen-dev
+          apt -y install libpcl-dev
       - name: build
         run: |
-            cd $GITHUB_WORKSPACE/sick-lms5xx
-            mkdir build && cd build
-            cmake .. -D${{ matrix.build_arg1 }} -D${{ matrix.build_arg2 }}
-            make install
+          cd $GITHUB_WORKSPACE/sick-lms5xx
+          mkdir build && cd build
+          cmake .. -D${{ matrix.build_arg1 }} -D${{ matrix.build_arg2 }}
+          make install
