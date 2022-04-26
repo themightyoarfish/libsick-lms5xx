@@ -52,6 +52,7 @@ if(BUILD_EXAMPLE)
 endif()
 
 add_library(${PROJECT_NAME} SHARED ${SRCS})
+add_library(${PROJECT_NAME_UPPER}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         $<INSTALL_INTERFACE:include>
@@ -80,6 +81,8 @@ install(TARGETS ${PROJECT_NAME}
 )
 
 # use uppercased name for the library's export name (whatever that is)
+# This means you use this in dependent projects like this:
+# `target_link_libraries(mytarget PUBLIC SickLMS5xx::SickLMS5xx)`
 set_target_properties(${PROJECT_NAME} PROPERTIES EXPORT_NAME ${PROJECT_NAME_UPPER})
 
 # install the header files
@@ -119,3 +122,15 @@ install(FILES
 export(EXPORT ${PROJECT_NAME}-targets FILE
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}Targets.cmake NAMESPACE
     ${PROJECT_NAME_UPPER}::)
+
+# add an uninstall target
+# uninstall target
+if(NOT TARGET uninstall)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake"
+    IMMEDIATE @ONLY)
+
+  add_custom_target(uninstall
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake)
+endif()

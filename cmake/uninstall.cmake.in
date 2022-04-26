@@ -1,0 +1,40 @@
+if(NOT EXISTS "@CMAKE_BINARY_DIR@/install_manifest.txt")
+  message(FATAL_ERROR "Cannot find install manifest: @CMAKE_BINARY_DIR@/install_manifest.txt")
+endif()
+
+file(READ "@CMAKE_BINARY_DIR@/install_manifest.txt" files)
+string(REGEX REPLACE "\n" ";" files "${files}")
+foreach(file ${files})
+  message(STATUS "Uninstalling $ENV{DESTDIR}${file}")
+  if(IS_SYMLINK "$ENV{DESTDIR}${file}" OR EXISTS "$ENV{DESTDIR}${file}")
+    exec_program(
+      "@CMAKE_COMMAND@" ARGS "-E remove \"$ENV{DESTDIR}${file}\""
+      OUTPUT_VARIABLE rm_out
+      RETURN_VALUE rm_retval
+      )
+    if(NOT "${rm_retval}" STREQUAL 0)
+      message(FATAL_ERROR "Problem when removing $ENV{DESTDIR}${file}")
+    endif()
+    # So far we removed only files ... if the install created directories, they will not
+    # be removed, which is filthy. The below would remove now empty directories, but
+    # this might als remove directories which were empty before this project came along.
+    # Unfortunately cmake does not tell us which directories it created.
+    # get_filename_component(file_dir "$ENV{DESTDIR}${file}" DIRECTORY)
+    # exec_program("if [ -z \"$(ls -A ${file_dir})\" ]; then echo 0; else echo 1; fi"
+    #     OUTPUT_VARIABLE num_files RETURN_VALUE dirempty_retval)
+    # if (num_files EQUAL 0)
+    #     message(STATUS "Removing now empty directory  ${file_dir}")
+    #     exec_program(
+    #       "@CMAKE_COMMAND@" ARGS "-E remove_directory \"${file_dir}\""
+    #       OUTPUT_VARIABLE rm_out
+    #       RETURN_VALUE rm_retval
+    #       )
+    # endif()
+    # if(NOT "${rm_retval}" STREQUAL 0)
+    #   message(FATAL_ERROR "Problem when removing ${file_dir}")
+    # endif()
+
+  else(IS_SYMLINK "$ENV{DESTDIR}${file}" OR EXISTS "$ENV{DESTDIR}${file}")
+    message(STATUS "File $ENV{DESTDIR}${file} does not exist.")
+  endif()
+endforeach()
