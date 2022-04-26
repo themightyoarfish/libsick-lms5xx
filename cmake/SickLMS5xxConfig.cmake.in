@@ -4,7 +4,7 @@ include(CMakeFindDependencyMacro)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_DIR})
 
 find_dependency(Eigen3 REQUIRED)
-find_dependency(PCL 1.12 REQUIRED COMPONENTS common io)
+find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
 add_definitions(${PCL_DEFINITIONS})
 
 if(NOT TARGET SickLMS5xx::SickLMS5xx)
