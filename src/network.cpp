@@ -1,8 +1,9 @@
-#include <sick-lms5xx/network.hpp>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <sick-lms5xx/network.hpp>
+#include <stdexcept>
 
 namespace sick {
 
