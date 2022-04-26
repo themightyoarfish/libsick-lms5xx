@@ -134,3 +134,6 @@ if(NOT TARGET uninstall)
   add_custom_target(uninstall
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake)
 endif()
+
+# `make package` creates a simple binary release with include/ and lib/
+include(CPack)
