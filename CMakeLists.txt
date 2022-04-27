@@ -5,7 +5,7 @@ set(PROJECT_NAME_UPPER SickLMS5xx)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Eigen3 3.3.9 REQUIRED)
+find_package(Eigen3 REQUIRED)
 set(SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/example.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/parsing.cpp

@@ -21,7 +21,7 @@ jobs:
       - name: "Install new cmake ubuntu"
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
-          apt -y install curl
+          sudo apt -y install curl
           echo "/usr/local/bin" >> $GITHUB_PATH
           curl -L https://github.com/Kitware/CMake/releases/download/v3.23.1/cmake-3.23.1-linux-x86_64.sh -o cmake.sh
           sudo sh cmake.sh --skip-license --prefix=/usr/local
