@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.10)
 project(sick-lms5xx VERSION 0.1.0 LANGUAGES C CXX)
 set(PROJECT_NAME_UPPER SickLMS5xx)
 
