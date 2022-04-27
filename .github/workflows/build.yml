@@ -11,9 +11,9 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-20.04]
-        build_arg1: [WITH_PCL=ON]
-        build_arg2: [BUILD_EXAMPLE=ON]
+        os: [ubuntu-20.04, macos-10.15]
+        build_arg1: [WITH_PCL=ON, WITH_PCL=OFF]
+        build_arg2: [BUILD_EXAMPLE=ON BUILD_EXAMPLE=OFF]
 
     runs-on: ${{ matrix.os }}
     steps:
