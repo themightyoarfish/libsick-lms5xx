@@ -1,21 +1,30 @@
 #pragma once
 
-#include <string>
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <string>
 
+/**
+ * Supplement chrono with some types which only exist in more recent C++
+ * standards
+ */
 using days = std::chrono::duration<long, std::ratio<86400>>;
 using months = std::chrono::duration<long, std::ratio<2629746>>;
 using years = std::chrono::duration<long, std::ratio<31556952>>;
 
-static constexpr char STX = '\x02';
-static constexpr char ETX = '\x03';
+static constexpr char STX = '\x02'; ///< telegram start marker
+static constexpr char ETX = '\x03'; ///< telegram end marker
 
 static constexpr double RAD2DEG = 180.0 / M_PI;
 static constexpr double DEG2RAD = 1 / RAD2DEG;
 
 namespace sick {
+
+/**
+ * @brief   Error type for errors returned by the scanner, and errors from this
+ * library
+ */
 enum class sick_err_t : uint8_t {
   Ok = 0,
   Sopas_Error_METHODIN_ACCESSDENIED,
@@ -52,6 +61,13 @@ enum class sick_err_t : uint8_t {
   _LAST
 };
 
+/**
+ * @brief   Convert error type to string
+ *
+ * @param   err Error
+ *
+ * @return  Name of the error for display
+ */
 static std::string sick_err_t_to_string(const sick_err_t &err) {
   constexpr size_t last_idx = static_cast<size_t>(sick_err_t::_LAST);
   const std::array<std::string, last_idx> strerrors{

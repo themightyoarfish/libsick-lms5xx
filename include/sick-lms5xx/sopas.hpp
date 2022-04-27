@@ -1,57 +1,142 @@
 #pragma once
-#include <sick-lms5xx/network.hpp>
-#include <sick-lms5xx/parsing.hpp>
 #include <atomic>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <sick-lms5xx/network.hpp>
+#include <sick-lms5xx/parsing.hpp>
 #include <thread>
 
 namespace sick {
 
-using ScanCallback = std::function<void(const Scan &)>;
+using ScanCallback =
+    std::function<void(const Scan &)>; ///< Callback type for complete scans
 
+/**
+ * @brief   Class implementing SOPAS protocol abstractions on sockets.
+ */
 class SOPASProtocol {
 
 protected:
-  const std::string sensor_ip_;
-  const uint32_t port_;
-  ScanCallback callback_;
-  std::atomic<bool> stop_;
-  std::thread poller_;
-  ScanBatcher batcher_;
+  const std::string sensor_ip_; ///< ip address of the sensor
+  const uint32_t
+      port_; ///< SOPAS port. 2111 for ascii, 2112 for binary, usually
+  ScanCallback callback_;  ///< callback for complete scans
+  std::atomic<bool> stop_; ///< stop flag for thread
+  std::thread poller_;     ///< scanner polling thread
+  ScanBatcher batcher_;    ///< batcher for partial telegrams
 
-  int sock_fd_;
+  int sock_fd_; ///< socket file descriptor
 
 public:
   using SOPASProtocolPtr = std::shared_ptr<const SOPASProtocol>;
 
+  /**
+   * @brief Constructor
+   *
+   * @param sensor_ip   IP address of the scanner (host name will not work)
+   * @param port    SOPAS port
+   * @param fn  Callback function
+   */
   SOPASProtocol(const std::string &sensor_ip, const uint32_t port,
                 const ScanCallback &fn);
 
+  /**
+   * @brief Log out from scanner and request scan data stream. After this, the
+   * next data from the scanner will be the data.
+   *
+   * @return Error or success
+   */
   virtual sick_err_t run() = 0;
 
+  /**
+   * @brief Log in to the scanner
+   *
+   * @param mode    2 for Maintenance, 3 for authorized client, 4 for service
+   * @param pw_hash Hash of the appropriate password
+   *
+   * @return    Error or success
+   */
   virtual sick_err_t set_access_mode(const uint8_t mode,
                                      const uint32_t pw_hash) = 0;
 
+  /**
+   * @brief Configure the scanner as NTP client
+   *
+   * @param ip  NTP server IP
+   *
+   * @return    Error or success
+   */
   virtual sick_err_t configure_ntp_client(const std::string &ip) = 0;
 
+  /**
+   * @brief Set new scan configuration
+   *
+   * @param params  Parameters for scanner
+   *
+   * @return Error or success
+   */
   virtual sick_err_t set_scan_config(const lms5xx::LMSConfigParams &params) = 0;
 
+  /**
+   * @brief Save the scan configuration on the device
+   *
+   * @return    Error or success
+   */
   virtual sick_err_t save_params() = 0;
 
+  /**
+   * @brief Start the thread to receive scan data and get the callback invoked
+   *
+   * @return    Error or success
+   */
   sick_err_t start_scan();
 
+  /**
+   * @brief Interrupt the scanner, possibly attempt to shut down the laser.
+   */
   virtual void stop();
 };
 
+/**
+ * @brief   Get reply from socket. Basically `read()`
+ *
+ * @param sock_fd   Socket file descroptor
+ * @param data_out  Output data buffer allocated by the user
+ * @param len   Max number of bytes to read
+ *
+ * @return  Number of bytes actually read
+ */
 int receive_sopas_reply(int sock_fd, char *data_out, size_t len);
 
+/**
+ * @brief   Send data to socket. Basically `write()`
+ *
+ * @param sock_fd   Socket file descroptor
+ * @param data_out   data buffer to send
+ * @param len   number of bytes to write
+ *
+ * @return  Number of bytes actually written
+ */
 int send_sopas_command(int sock_fd, const char *data, size_t len);
 
+/**
+ * @brief   Send a command and parse the answer for success
+ *
+ * @param sock_fd   Socket file descroptor
+ * @param data_out   data buffer to send
+ * @param len   number of bytes to write
+ *
+ * @return  Error code or success
+ */
 sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
                                                size_t len);
 
+/**
+ * @brief   Implementation of the ASCII sopas protocol. This protocol is
+ * wasteful in terms of bandwidth, but easier to parse. For the LMS scanner this
+ * is fine since the data rate is quite low.
+ */
 class SOPASProtocolASCII : public SOPASProtocol {
 
   using SOPASProtocol::SOPASProtocol;
@@ -75,12 +160,24 @@ class SOPASProtocolASCII : public SOPASProtocol {
       {RUN, "\x02sMN Run\x03"},
       {LMDSCANDATA, "\x02sEN LMDscandata %u\x03"},
       {LMCSTOPMEAS, "\x02sMN LMCstopmeas\x03"},
-      {LMCSTARTMEAS, "\x02sMN LMCstartmeas\x03"}};
+      {LMCSTARTMEAS,
+       "\x02sMN LMCstartmeas\x03"}}; ///<    map from commands to format strings
+                                     ///<    to fill arguments into
 
 public:
   sick_err_t set_access_mode(const uint8_t mode = 3,
                              const uint32_t pw_hash = 0xF4724744) override;
 
+  /**
+   * @brief Function to assemble a command message with the use of `sprintf()`
+   *
+   * @tparam Args   Argument types
+   * @param data_out    Output argument with the command
+   * @param cmd SOPAS Command
+   * @param args    Argument values
+   *
+   * @return    Sprintf return value (number of chars printed)
+   */
   template <typename... Args>
   int make_command_msg(char *data_out, SOPASCommand cmd, Args... args) {
 #pragma GCC diagnostic push
@@ -94,6 +191,15 @@ public:
     return bytes_written;
   }
 
+  /**
+   * @brief CONTINUE HERE
+   *
+   * @tparam Args
+   * @param cmd
+   * @param args
+   *
+   * @return
+   */
   template <typename... Args>
   sick_err_t send_command(SOPASCommand cmd, Args... args) {
     std::array<char, 4096> buffer;
