@@ -13,4 +13,4 @@ Uses BSD sockets and should therefore run on Linux and MacOS.
 
 # Disclaimer
 
-Not affiliated with [Sick AG](https://www.sick.com/de/en/)]
+Not affiliated with [Sick AG](https://www.sick.com/de/en/)
