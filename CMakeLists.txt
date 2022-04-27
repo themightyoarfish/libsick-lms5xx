@@ -31,7 +31,7 @@ endif()
 option(WITH_PCL "Enable PCL support" ON)
 
 if(WITH_PCL)
-    find_package(PCL REQUIRED COMPONENTS common io)
+    find_package(PCL 1.10 REQUIRED COMPONENTS common io)
     list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/pcl.cpp)
     list(APPEND HDRS ${CMAKE_CURRENT_SOURCE_DIR}/include/sick-lms5xx/pcl.hpp)
     list(APPEND LIBS ${PCL_LIBRARIES})
