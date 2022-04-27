@@ -18,19 +18,23 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      # - name: "Install new cmake"
-      #   run: |
-      #     sudo bash $GITHUB_WORKSPACE/scripts/install_cmake.bash
-      #     echo "/usr/local/bin" >> $GITHUB_PATH
+      - name: "Install new cmake ubuntu"
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          apt -y install curl
+          echo "/usr/local/bin" >> $GITHUB_PATH
+          curl -L https://github.com/Kitware/CMake/releases/download/v3.23.1/cmake-3.23.1-linux-x86_64.sh -o cmake.sh
+          sudo sh cmake.sh --skip-license --prefix=/usr/local
       - name: "Setup deps macos"
         if: ${{ startsWith(matrix.os, 'macos') }}
         run: |
-          brew install eigen pcl awk
+          brew update
+          brew install cmake eigen pcl awk
       - name: "Setup deps ubuntu"
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
           sudo apt -y update
-          sudo apt -y install wget libeigen3-dev libpcl-dev
+          sudo apt -y install libeigen3-dev libpcl-dev
       - name: build
         run: |
           cd $GITHUB_WORKSPACE/
