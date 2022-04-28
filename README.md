@@ -1,3 +1,7 @@
+[![Build project](https://github.com/themightyoarfish/libsick-lms5xx/actions/workflows/build.yml/badge.svg)](https://github.com/themightyoarfish/libsick-lms5xx/actions/workflows/build.yml)
+
+---
+
 <p align="center">
 <img src="gfx/image.png" alt="accidental art" width="200"/>
 <p>
