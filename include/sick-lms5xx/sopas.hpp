@@ -96,6 +96,8 @@ public:
    * @brief Interrupt the scanner, possibly attempt to shut down the laser.
    */
   virtual void stop();
+
+  virtual ~SOPASProtocol() {}
 };
 
 /**
@@ -219,6 +221,8 @@ public:
   sick_err_t run() override;
 
   void stop() override;
+
+  ~SOPASProtocolASCII() {}
 };
 
 } // namespace sick
