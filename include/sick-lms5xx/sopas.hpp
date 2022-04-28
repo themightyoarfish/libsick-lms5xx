@@ -113,7 +113,7 @@ int receive_sopas_reply(int sock_fd, char *data_out, size_t len);
  * @brief   Send data to socket. Basically `write()`
  *
  * @param sock_fd   Socket file descroptor
- * @param data_out   data buffer to send
+ * @param data  data buffer to send
  * @param len   number of bytes to write
  *
  * @return  Number of bytes actually written
@@ -124,7 +124,7 @@ int send_sopas_command(int sock_fd, const char *data, size_t len);
  * @brief   Send a command and parse the answer for success
  *
  * @param sock_fd   Socket file descroptor
- * @param data_out   data buffer to send
+ * @param data       data buffer to send
  * @param len   number of bytes to write
  *
  * @return  Error code or success
@@ -192,13 +192,13 @@ public:
   }
 
   /**
-   * @brief CONTINUE HERE
+   * @brief Send a SOPAS command to the socket
    *
-   * @tparam Args
-   * @param cmd
-   * @param args
+   * @tparam Args   Command parameter types
+   * @param cmd     Command to send
+   * @param args    Command parameter values
    *
-   * @return
+   * @return    Error result from `send_sopas_command_and_check_answer()`
    */
   template <typename... Args>
   sick_err_t send_command(SOPASCommand cmd, Args... args) {

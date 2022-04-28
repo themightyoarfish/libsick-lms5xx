@@ -21,9 +21,8 @@ class TokenBuffer {
 
 public:
   /**
-   * @param tokens  Null-terminated input string of tokens delimited by \ref
-   * delim
-   * @param len len Length of the \ref tokens input string **not number of
+   * @param tokens  Null-terminated input string of tokens delimited by \p delim
+   * @param len len Length of the \p tokens input string **not number of
    * tokens**
    * @param delim   Delimiter between the tokens
    */
@@ -146,7 +145,7 @@ public:
    * an entire scan.
    *
    * @param data_new    Data to append
-   * @param length  Number of bytes in \ref data_new
+   * @param length  Number of bytes in \p data_new
    *
    * @return    Maybe, a parsed scan.
    */
@@ -167,10 +166,10 @@ public:
    *
    * @param buffer  Complete telegram with all channels and metadata. Vector may
    * have trailing data or junk at the end
-   * @param last_valid_idx  Index of last valid byte in \ref buffer
+   * @param last_valid_idx  Index of last valid byte in \p buffer
    * @param scan    Parse scan
    *
-   * @return    Whether the parse was successful and \ref scan can be used
+   * @return    Whether the parse was successful and \p scan can be used
    */
   static bool parse_scan_telegram(const std::vector<char> &buffer,
                                   size_t last_valid_idx, Scan &scan);
@@ -200,7 +199,7 @@ enum SOPASCommand {
  * a reply
  *
  * @param sopas_reply   Response from the scanner
- * @param len   Lenght of \ref sopas_reply
+ * @param len   Lenght of \p sopas_reply
  *
  * @return  The method string from the reply
  */
@@ -224,7 +223,7 @@ bool status_ok(const std::string &cmd_name, int status_code);
  * have a minimum length and contain the start and end bytes
  *
  * @param data  Data from scanner
- * @param len   Length of \ref data
+ * @param len   Length of \p data
  *
  * @return  Whether this looks like a properly formed SOPAS reply
  */
@@ -234,7 +233,7 @@ bool validate_response(const char *data, size_t len);
  * @brief   Parse status from ascii SOPAS response
  *
  * @param data  Data from scanner
- * @param len   Length of \ref data
+ * @param len   Length of \p data
  *
  * @return  Error or success code for this telegram
  */
