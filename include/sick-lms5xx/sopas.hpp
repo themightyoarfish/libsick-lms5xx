@@ -29,7 +29,7 @@ protected:
   int sock_fd_; ///< socket file descriptor
 
 public:
-  using SOPASProtocolPtr = std::shared_ptr<const SOPASProtocol>;
+  using SOPASProtocolPtr = std::shared_ptr<SOPASProtocol>;
 
   /**
    * @brief Constructor
