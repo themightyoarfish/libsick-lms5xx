@@ -3,7 +3,7 @@ include(CMakeFindDependencyMacro)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_DIR})
 
-find_dependency(Eigen3 REQUIRED)
+find_dependency(Eigen3 3.3.4 REQUIRED)
 find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
 add_definitions(${PCL_DEFINITIONS})
 
