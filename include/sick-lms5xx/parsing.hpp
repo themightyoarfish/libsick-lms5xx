@@ -101,7 +101,7 @@ public:
  */
 struct Channel {
   double ang_incr;         ///< angular step between points
-  std::vector<rad> angles; ///< angles of each ray
+  std::vector<float> angles; ///< angles of each ray
   std::vector<float>
       values; ///< channel values (meters for distance, 0-255 for intensities)
   std::string description; ///< name of the channel, e.g. RSSI1, DIST1
