@@ -19,9 +19,16 @@ target_link_libraries(<target> PUBLIC SickLMS5xx::SickLMS5xx)
 
 See `src/example.cpp` for how to interact with a scanner.
 
-# Compatibility
+# Requirements
 
 Uses BSD sockets and should therefore run on Linux and MacOS.
+
+The dependencies are
+
+- PCL >= 1.10, which is available in the package repos only from ubuntu 20.04. for older
+  OS versions, you'll have to install form source
+- Eigen3, which is a PCL dependency anyway
+- Doxygen if you want to generate HTML doc
 
 # Disclaimer
 

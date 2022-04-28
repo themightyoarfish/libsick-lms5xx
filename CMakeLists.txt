@@ -98,7 +98,7 @@ install(EXPORT ${PROJECT_NAME}-targets
     ${INSTALL_CONFIGDIR}
 )
 
-# make the version selection scropt
+# make the version selection script
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}ConfigVersion.cmake
