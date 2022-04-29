@@ -85,9 +85,8 @@ sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
   return status;
 }
 
-sick_err_t
-SOPASProtocolASCII::set_access_mode(const uint8_t mode,
-                                    const uint32_t pw_hash) {
+sick_err_t SOPASProtocolASCII::set_access_mode(const uint8_t mode,
+                                               const uint32_t pw_hash) {
   std::array<char, 128> buffer;
   // authorized client mode with pw hash from telegram listing
   int bytes_written = std::sprintf(
@@ -116,7 +115,8 @@ sick_err_t SOPASProtocolASCII::configure_ntp_client(const std::string &ip) {
   return srvaddr_res;
 }
 
-sick_err_t SOPASProtocolASCII::set_scan_config(const lms5xx::LMSConfigParams &params){
+sick_err_t
+SOPASProtocolASCII::set_scan_config(const lms5xx::LMSConfigParams &params) {
 
   const hz frequency = params.frequency;
   const unsigned int hz_Lms = static_cast<unsigned int>(frequency * 100);
@@ -147,7 +147,9 @@ sick_err_t SOPASProtocolASCII::set_scan_config(const lms5xx::LMSConfigParams &pa
   return status;
 }
 
-sick_err_t SOPASProtocolASCII::save_params() { return send_command(MEEWRITEALL); }
+sick_err_t SOPASProtocolASCII::save_params() {
+  return send_command(MEEWRITEALL);
+}
 
 sick_err_t SOPASProtocolASCII::run() {
   sick_err_t status = send_command(RUN);
@@ -195,4 +197,4 @@ void SOPASProtocolASCII::stop() {
   }
 }
 
-} /* sick */
+} // namespace sick

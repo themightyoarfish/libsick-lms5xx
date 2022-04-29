@@ -191,10 +191,17 @@ bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
     const long mi = strtol(buf.next(), &p, 16);
     const long s = strtol(buf.next(), &p, 16);
     const long us = strtol(buf.next(), &p, 16);
-    std::chrono::system_clock::time_point stamp;
-    stamp += years(y) + months(mo) + days(d) + std::chrono::hours(h) +
-             std::chrono::minutes(mi) + std::chrono::seconds(s) +
-             std::chrono::microseconds(us);
+    std::tm tm;
+    tm.tm_year = y - 1900;
+    tm.tm_mon = mo - 1;
+    tm.tm_mday = d;
+    tm.tm_hour = h;
+    tm.tm_min = mi;
+    tm.tm_sec = s;
+    std::time_t tmt = std::mktime(&tm);
+    std::chrono::system_clock::time_point stamp =
+        std::chrono::system_clock::from_time_t(tmt) +
+        std::chrono::microseconds(us);
 
     if (channels_16bit.size() < 1) {
       throw std::runtime_error("parse_scan_telegram() got no 16bit channels");

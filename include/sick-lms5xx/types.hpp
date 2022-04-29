@@ -5,14 +5,6 @@
 #include <cmath>
 #include <string>
 
-/**
- * Supplement chrono with some types which only exist in more recent C++
- * standards
- */
-using days = std::chrono::duration<long, std::ratio<86400>>;
-using months = std::chrono::duration<long, std::ratio<2629746>>;
-using years = std::chrono::duration<long, std::ratio<31556952>>;
-
 static constexpr char STX = '\x02'; ///< telegram start marker
 static constexpr char ETX = '\x03'; ///< telegram end marker
 
