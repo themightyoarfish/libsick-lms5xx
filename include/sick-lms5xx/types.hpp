@@ -50,6 +50,7 @@ enum class sick_err_t : uint8_t {
   CustomErrorCommandFailure,
   CustomErrorSocketSend,
   CustomErrorSocketRecv,
+  CustomErrorConnectionClosed,
   _LAST
 };
 
@@ -94,7 +95,9 @@ static std::string sick_err_t_to_string(const sick_err_t &err) {
       "CustomErrorInvalidDatagram",
       "CustomErrorCommandFailure",
       "CustomErrorSocketSend",
-      "CustomErrorSocketRecv"};
+      "CustomErrorSocketRecv",
+      "CustomErrorConnectionClosed",
+  };
   return strerrors[static_cast<size_t>(err)];
 }
 

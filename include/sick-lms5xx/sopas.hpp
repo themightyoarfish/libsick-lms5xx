@@ -6,6 +6,7 @@
 #include <sick-lms5xx/network.hpp>
 #include <sick-lms5xx/parsing.hpp>
 #include <thread>
+#include <unistd.h>
 
 namespace sick {
 
@@ -97,7 +98,7 @@ public:
    */
   virtual void stop();
 
-  virtual ~SOPASProtocol() {}
+  virtual ~SOPASProtocol() { close(sock_fd_); }
 };
 
 /**

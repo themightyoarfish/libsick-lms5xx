@@ -73,6 +73,8 @@ sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
   int send_result = send_sopas_command(sock_fd, data, len);
   if (send_result < 0) {
     return sick_err_t::CustomErrorSocketSend;
+  } else if (send_result == 0) {
+    return sick_err_t::CustomErrorConnectionClosed;
   }
   std::array<char, 4096> recvbuf;
   // fill with 0s so we have a null-terminated string
@@ -80,6 +82,8 @@ sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
   int recv_result = receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
   if (recv_result < 0) {
     return sick_err_t::CustomErrorSocketRecv;
+  } else if (recv_result == 0) {
+    return sick_err_t::CustomErrorConnectionClosed;
   }
   sick_err_t status = status_from_bytes_ascii(recvbuf.data(), recv_result);
   return status;
@@ -92,7 +96,7 @@ sick_err_t SOPASProtocolASCII::set_access_mode(const uint8_t mode,
   int bytes_written = std::sprintf(
       buffer.data(), command_masks_[SETACCESSMODE].c_str(), mode, pw_hash);
   if (bytes_written < 0) {
-    /* error */
+    return sick_err_t::CustomError;
   }
   sick_err_t result = send_sopas_command_and_check_answer(
       sock_fd_, buffer.data(), bytes_written);
