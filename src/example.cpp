@@ -44,7 +44,7 @@ static void cbk(const Scan &scan) {
 
 int main() {
   n_scans = 0;
-  SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
+  SOPASProtocolASCII proto("192.168.50.18", 2111, cbk);
 
   // log into the scanner as authorized client.
   sick_err_t status = proto.set_access_mode();
@@ -54,7 +54,7 @@ int main() {
   }
 
   // Sync scanner clock to ntp server
-  status = proto.configure_ntp_client("192.168.95.44");
+  status = proto.configure_ntp_client("192.168.50.25");
   if (status != sick_err_t::Ok) {
     std::cout << "Could not configure ntp client" << std::endl;
     return 2;
