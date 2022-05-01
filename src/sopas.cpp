@@ -2,6 +2,22 @@
 
 namespace sick {
 
+static int uninterrupted_recv(int fd, char *data, int len) {
+  int ret;
+  while ((ret = recv(fd, data, len, 0)) == -1 && errno == EINTR) {
+    continue;
+  }
+  return ret;
+}
+
+static int uninterrupted_send(int fd, const char *data, int len) {
+  int ret;
+  while ((ret = send(fd, data, len, 0)) == -1 && errno == EINTR) {
+    continue;
+  }
+  return ret;
+}
+
 SOPASProtocol::SOPASProtocol(const std::string &sensor_ip, const uint32_t port,
                              const ScanCallback &fn)
     : sensor_ip_(sensor_ip), port_(port), callback_(fn) {
@@ -40,7 +56,8 @@ sick_err_t SOPASProtocol::start_scan() {
   poller_ = std::thread([&] {
     std::vector<char> buffer(2 * 4096);
     while (!stop_.load()) {
-      int read_bytes = recv(sock_fd_, buffer.data(), buffer.size(), 0);
+      int read_bytes =
+          uninterrupted_recv(sock_fd_, buffer.data(), buffer.size());
       if (read_bytes < 0) {
       } else {
         simple_optional<Scan> maybe_s =
@@ -61,11 +78,17 @@ void SOPASProtocol::stop() {
 }
 
 int receive_sopas_reply(int sock_fd, char *data_out, size_t len) {
-  return recv(sock_fd, data_out, len, 0);
+  if (len < 1) {
+    throw std::runtime_error("No data passed to receive_sopas_reply()");
+  }
+  return uninterrupted_recv(sock_fd, data_out, len);
 }
 
 int send_sopas_command(int sock_fd, const char *data, size_t len) {
-  return send(sock_fd, data, len, 0);
+  if (len < 1) {
+    throw std::runtime_error("No data passed to send_sopas_command()");
+  }
+  return uninterrupted_send(sock_fd, data, len);
 }
 
 sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
@@ -191,7 +214,8 @@ void SOPASProtocolASCII::stop() {
           /* std::cout << "Login failed." << std::endl; */
         }
       } else {
-        /* std::cout << "Scan stop cmd failed: " << sick_err_t_to_string(status) */
+        /* std::cout << "Scan stop cmd failed: " << sick_err_t_to_string(status)
+         */
         /*           << std::endl; */
       }
       return;
