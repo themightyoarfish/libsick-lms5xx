@@ -9,15 +9,13 @@
 namespace sick {
 
 /**
- * @brief   Class to emulate Python iterator. Uses `strtok()` to tokenize a byte
- * string   and supplies the next toke on demand
+ * @brief   Class to emulate Python iterator. Tokenizes string by use of a delimiter.
  */
 class TokenBuffer {
 
-  std::vector<char>
+  std::vector<std::string>
       tokens_copy_; ///< we need to copy tokens to not destroy the input string
-  char *cur_tok_;   ///< pointer to current token
-  std::string delim_; ///< delimiter between tokens
+  decltype(tokens_copy_)::iterator iter_;
 
 public:
   /**
@@ -26,7 +24,7 @@ public:
    * tokens**
    * @param delim   Delimiter between the tokens
    */
-  TokenBuffer(const char *tokens, size_t len, const std::string &delim = " ");
+  TokenBuffer(const char *tokens, size_t len, char delim = ' ');
 
   /**
    * @return    Whether there are more tokens

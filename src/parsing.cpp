@@ -1,21 +1,33 @@
+#include <iostream>
 #include <sick-lms5xx/parsing.hpp>
 
 using namespace std;
 
 namespace sick {
-TokenBuffer::TokenBuffer(const char *tokens, size_t len, const string &delim) {
-  delim_ = delim;
-  tokens_copy_.resize(len + 1, '\0');
-  memcpy(&tokens_copy_[0], tokens, len);
-  cur_tok_ = strtok(&tokens_copy_[0], delim.c_str());
+TokenBuffer::TokenBuffer(const char *tokens, size_t len, char delim) {
+  tokens_copy_.reserve(len / 2);
+  size_t begin_tok = 0;
+  size_t end_tok = 0;
+  for (size_t idx = 0; idx < len; ++idx) {
+    if (tokens[idx] == delim) {
+      end_tok = idx - 1;
+      string token(tokens + begin_tok, end_tok - begin_tok + 1);
+      tokens_copy_.push_back(token);
+      begin_tok = idx + 1;
+    }
+  }
+  string final_token(tokens + begin_tok, len - begin_tok + 1);
+  tokens_copy_.push_back(final_token);
+  iter_ = tokens_copy_.begin();
 }
 
-bool TokenBuffer::has_next() const { return cur_tok_ != nullptr; }
+bool TokenBuffer::has_next() const { return iter_ != tokens_copy_.end(); }
 
 const char *TokenBuffer::next() {
-  const char *ret = cur_tok_;
-  cur_tok_ = strtok(nullptr, delim_.c_str());
-  return ret;
+  if (!has_next()) {
+    throw std::out_of_range("TokenBuffer has no more tokens.");
+  }
+  return (iter_++)->c_str();
 }
 
 Channel::Channel() { ang_incr = 0; }
@@ -123,7 +135,8 @@ Channel ScanBatcher::parse_channel(TokenBuffer &buf) {
 bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
                                       size_t last_valid_idx, Scan &scan) {
   using std::string;
-  TokenBuffer buf(&buffer[0], last_valid_idx + 1);
+  // remove STX and ETX bytes
+  TokenBuffer buf(&buffer[1], last_valid_idx);
 
   string method(buf.next());
   string command(buf.next());
@@ -284,9 +297,10 @@ bool validate_response(const char *data, size_t len) {
   if (len <= 6) {
     return false;
   }
-  // check that there is exactly one STX and one ETX byte, otherwise we somehow
-  // read multiple messages, which can happen in some cases if you time out your
-  // recv, but the data then comes with your next call (should you try one)
+  // check that there is exactly one STX and one ETX byte, otherwise we
+  // somehow read multiple messages, which can happen in some cases if you
+  // time out your recv, but the data then comes with your next call (should
+  // you try one)
   size_t n_stx = 0, n_etx = 0;
   for (int i = 0; i < len; ++i) {
     if (data[i] == STX) {
