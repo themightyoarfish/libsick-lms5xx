@@ -50,7 +50,7 @@ struct Scan {
   Eigen::VectorXf
       sin_map; ///< reuseable map of sine coefficients for each angle
   Eigen::VectorXf
-      cos_map; ///< reuseable map of sine coefficients for each angle
+      cos_map; ///< reuseable map of cosine coefficients for each angle
 
   std::chrono::system_clock::time_point time; ///< timestamp of scan acquisition
 
