@@ -77,6 +77,12 @@ void SOPASProtocol::stop() {
   poller_.join();
 }
 
+SOPASProtocol::~SOPASProtocol() {
+  this->stop();
+  poller_.join();
+  close(sock_fd_);
+}
+
 int receive_sopas_reply(int sock_fd, char *data_out, size_t len) {
   if (len < 1) {
     throw std::runtime_error("No data passed to receive_sopas_reply()");

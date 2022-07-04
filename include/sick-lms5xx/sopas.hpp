@@ -98,7 +98,7 @@ public:
    */
   virtual void stop();
 
-  virtual ~SOPASProtocol() { close(sock_fd_); }
+  virtual ~SOPASProtocol() ;
 };
 
 /**
