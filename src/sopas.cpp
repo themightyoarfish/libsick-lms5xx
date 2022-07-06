@@ -74,12 +74,15 @@ sick_err_t SOPASProtocol::start_scan() {
 
 void SOPASProtocol::stop() {
   stop_.store(true);
-  poller_.join();
+  // for mysterious reasons, sometimes the poller is not joinable even though it
+  // is not join()ed anywhere else
+  if (poller_.joinable()) {
+    poller_.join();
+  }
 }
 
 SOPASProtocol::~SOPASProtocol() {
   this->stop();
-  poller_.join();
   close(sock_fd_);
 }
 
