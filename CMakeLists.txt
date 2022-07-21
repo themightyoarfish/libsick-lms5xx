@@ -78,7 +78,8 @@ if(OSX)
 else()
   set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
-message(STATUS "RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "CMAKE_INSTALL_RPATH=${CMAKE_INSTALL_RPATH}")
+message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 
 include(GNUInstallDirs)
 
@@ -118,9 +119,12 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
-configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME_UPPER}Config.cmake.in
+set(INCLUDE_INSTALL_DIR include/)
+configure_package_config_file(
+    ${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME_UPPER}Config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}Config.cmake
     INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+    PATH_VARS INCLUDE_INSTALL_DIR
 )
 
 # install the cmake config and config version scripts

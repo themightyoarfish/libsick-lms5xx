@@ -1,11 +1,15 @@
 get_filename_component(CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
+@PACKAGE_INIT@
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_DIR})
 
 find_dependency(Eigen3 3.3.4 REQUIRED)
 find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
 add_definitions(${PCL_DEFINITIONS})
+
+set_and_check(SickLMS5xx_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
 
 if(NOT TARGET SickLMS5xx::SickLMS5xx)
     include("${CMAKE_DIR}/SickLMS5xxTargets.cmake")
