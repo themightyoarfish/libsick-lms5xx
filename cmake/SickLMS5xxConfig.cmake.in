@@ -1,16 +1,18 @@
 @PACKAGE_INIT@
 
-find_dependency(Eigen3 3.3.4 REQUIRED)
-find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
-add_definitions(${PCL_DEFINITIONS})
-
+#message(STATUS "Sick PACKAGE_PREFIX_DIR=${PACKAGE_PREFIX_DIR}")
 set_and_check(SickLMS5xx_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
 set_and_check(SickLMS5xx_LIBRARY_DIR "@PACKAGE_LIBRARY_INSTALL_DIR@")
-set_and_check(SickLMS5xx_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@/libsick-lms5xx${CMAKE_SHARED_MODULE_SUFFIX}")
+set_and_check(SickLMS5xx_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@libsick-lms5xx${CMAKE_SHARED_MODULE_SUFFIX}")
 # set_and_check(SickLMS5xx_STATIC_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@/libsick-lms5xx.a")
 set(SickLMS5xx_LIBRARIES ${SickLMS5xx_LIBRARY})
 
 if(NOT TARGET SickLMS5xx::SickLMS5xx)
   include("${CMAKE_CURRENT_LIST_DIR}/SickLMS5xxTargets.cmake")
 endif()
+
+# Have to come last as they modify some variable used above.
+find_dependency(Eigen3 3.3.4 REQUIRED)
+find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
+add_definitions(${PCL_DEFINITIONS})
 
