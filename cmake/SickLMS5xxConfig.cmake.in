@@ -6,7 +6,9 @@ add_definitions(${PCL_DEFINITIONS})
 
 set_and_check(SickLMS5xx_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
 set_and_check(SickLMS5xx_LIBRARY_DIR "@PACKAGE_LIBRARY_INSTALL_DIR@")
-set(SickLMS5xx_LIBRARIES SickLMS5xx::SickLMS5xx)
+set_and_check(SickLMS5xx_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@/libsick-lms5xx${CMAKE_SHARED_MODULE_SUFFIX}")
+# set_and_check(SickLMS5xx_STATIC_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@/libsick-lms5xx.a")
+set(SickLMS5xx_LIBRARIES ${SickLMS5xx_LIBRARY})
 
 if(NOT TARGET SickLMS5xx::SickLMS5xx)
   include("${CMAKE_CURRENT_LIST_DIR}/SickLMS5xxTargets.cmake")
