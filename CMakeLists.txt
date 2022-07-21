@@ -124,7 +124,6 @@ configure_package_config_file(
     ${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME_UPPER}Config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}Config.cmake
     INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
-    PATH_VARS INCLUDE_INSTALL_DIR
 )
 
 # install the cmake config and config version scripts
