@@ -68,6 +68,19 @@ endif()
 # make eigen, pcl an threads transitive dependencies of dependent projects
 target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBS})
 
+# Define rpath options to make library relocatable.
+set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
+set(CMAKE_SKIP_BUILD_RPATH OFF)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
+# Highest prio: Find libraries in same dir as where this is installed to.
+if(OSX)
+  set(MACOSX_RPATH ON)
+  set(CMAKE_INSTALL_RPATH "@executable_path")
+else()
+  set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+message(STATUS "RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}")
+
 include(GNUInstallDirs)
 
 # install cmake config script to lib/cmake/SickLMS5xx/...
