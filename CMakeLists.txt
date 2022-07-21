@@ -7,7 +7,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Eigen3 3.3.4 REQUIRED)
 set(SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/example.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/parsing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/network.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util.cpp
@@ -39,7 +38,7 @@ endif()
 
 option(BUILD_EXAMPLE "Build example code" ON)
 if(BUILD_EXAMPLE)
-    add_executable(example)
+    add_executable(example ${CMAKE_CURRENT_SOURCE_DIR}/src/example.cpp)
     target_include_directories(example PRIVATE SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_sources(example PRIVATE ${SRCS})
     target_link_libraries(example PRIVATE ${LIBS})
