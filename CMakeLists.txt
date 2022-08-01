@@ -50,7 +50,12 @@ if(BUILD_EXAMPLE)
     endif()
 endif()
 
-add_library(${PROJECT_NAME} SHARED ${SRCS})
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+if (BUILD_SHARED_LIBS)
+    add_library(${PROJECT_NAME} SHARED ${SRCS})
+else()
+    add_library(${PROJECT_NAME} STATIC ${SRCS})
+endif()
 add_library(${PROJECT_NAME_UPPER}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME}
     INTERFACE
