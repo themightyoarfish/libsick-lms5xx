@@ -56,10 +56,18 @@ if (BUILD_SHARED_LIBS)
 else()
     add_library(${PROJECT_NAME} STATIC ${SRCS})
 endif()
+
 add_library(${PROJECT_NAME_UPPER}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
 target_include_directories(${PROJECT_NAME}
-    INTERFACE
+    PUBLIC
         $<INSTALL_INTERFACE:include/>
+        # TODO: this may differ between build and install ... is this relocatable?
+        ${EIGEN3_INCLUDE_DIRS}
+)
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        # build tree includes need to be added only during build, not install
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         ${EIGEN3_INCLUDE_DIRS}
 )
