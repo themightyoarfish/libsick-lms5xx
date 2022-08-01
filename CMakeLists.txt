@@ -62,8 +62,6 @@ add_library(${PROJECT_NAME_UPPER}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         $<INSTALL_INTERFACE:include/>
-        # TODO: this may differ between build and install ... is this relocatable?
-        ${EIGEN3_INCLUDE_DIRS}
 )
 target_include_directories(${PROJECT_NAME}
     PRIVATE
