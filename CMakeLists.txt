@@ -54,7 +54,7 @@ add_library(${PROJECT_NAME} SHARED ${SRCS})
 add_library(${PROJECT_NAME_UPPER}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME}
     INTERFACE
-        $<INSTALL_INTERFACE:include/sick-lms5xx>
+        $<INSTALL_INTERFACE:include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         ${EIGEN3_INCLUDE_DIRS}
 )
