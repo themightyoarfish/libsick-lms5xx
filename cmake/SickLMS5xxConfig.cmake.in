@@ -3,8 +3,13 @@
 #message(STATUS "Sick PACKAGE_PREFIX_DIR=${PACKAGE_PREFIX_DIR}")
 set_and_check(SickLMS5xx_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
 set_and_check(SickLMS5xx_LIBRARY_DIR "@PACKAGE_LIBRARY_INSTALL_DIR@")
-set_and_check(SickLMS5xx_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@libsick-lms5xx${CMAKE_SHARED_MODULE_SUFFIX}")
-# set_and_check(SickLMS5xx_STATIC_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@/libsick-lms5xx.a")
+
+# configure-time branch on BUILD_SHARED_LIBS: how to do it better?
+if (@BUILD_SHARED_LIBS@)
+    set_and_check(SickLMS5xx_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@libsick-lms5xx${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+    set_and_check(SickLMS5xx_LIBRARY "@PACKAGE_LIBRARY_INSTALL_DIR@/libsick-lms5xx${CMAKE_STATIC_LIBRARY_SUFFIX}")
+endif()
 set(SickLMS5xx_LIBRARIES ${SickLMS5xx_LIBRARY})
 
 if(NOT TARGET SickLMS5xx::SickLMS5xx)
