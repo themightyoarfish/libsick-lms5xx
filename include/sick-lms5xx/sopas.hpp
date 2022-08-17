@@ -158,7 +158,8 @@ class SOPASProtocolASCII : public SOPASProtocol {
       // not documented
       {LMDSCANDATACFG, "\x02sWN LMDscandatacfg 00 00 1 0 0 0 00 0 0 0 1 1\x03"},
       {FRECHOFILTER, "\x02sWN FREchoFilter %u\x03"},
-      {LMPOUTPUTRANGE, "\x02sWN LMPoutputRange 1 +%4u %+d %+d\x03"},
+      {LMPOUTPUTRANGE_WRITE, "\x02sWN LMPoutputRange 1 +%4u %+d %+d\x03"},
+      {LMPOUTPUTRANGE_READ, "\x02sRN LMPoutputRange\x03"},
       {MEEWRITEALL, "\x02sMN mEEwriteall\x03"},
       {RUN, "\x02sMN Run\x03"},
       {LMDSCANDATA, "\x02sEN LMDscandata %u\x03"},

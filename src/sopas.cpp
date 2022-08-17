@@ -177,7 +177,7 @@ SOPASProtocolASCII::set_scan_config(const lms5xx::LMSConfigParams &params) {
   if (status != sick_err_t::Ok) {
     return status;
   }
-  status = send_command(LMPOUTPUTRANGE, ang_increment_lms, start_angle_lms,
+  status = send_command(LMPOUTPUTRANGE_WRITE, ang_increment_lms, start_angle_lms,
                         end_angle_lms);
   status = send_command(LMCSTARTMEAS);
   return status;
