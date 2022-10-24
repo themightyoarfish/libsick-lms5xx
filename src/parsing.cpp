@@ -313,7 +313,7 @@ bool validate_response(const char *data, size_t len) {
   return n_stx == 1 && n_etx == 1;
 }
 
-sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
+SickErr status_from_bytes_ascii(const char *data, size_t len) {
   if (!validate_response(data, len)) {
     return sick_err_t::CustomErrorInvalidDatagram;
   }
@@ -324,7 +324,7 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
     unsigned int status = 0;
     int scanf_result = sscanf(data, pattern, &status);
     if (scanf_result != 1) {
-      // parse error
+      return sick_err_t::CustomError;
     }
     return static_cast<sick_err_t>(status);
   } else {

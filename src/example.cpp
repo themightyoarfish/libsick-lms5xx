@@ -44,18 +44,18 @@ static void cbk(const Scan &scan) {
 
 int main() {
   n_scans = 0;
-  SOPASProtocolASCII proto("192.168.50.18", 2111, cbk);
+  SOPASProtocolASCII proto("192.168.95.194", 2111, cbk);
 
   // log into the scanner as authorized client.
-  sick_err_t status = proto.set_access_mode();
-  if (status != sick_err_t::Ok) {
+  SickErr status = proto.set_access_mode();
+  if (!status.ok()) {
     std::cout << "Could not set access mode." << std::endl;
     return 1;
   }
 
   // Sync scanner clock to ntp server
   status = proto.configure_ntp_client("192.168.50.25");
-  if (status != sick_err_t::Ok) {
+  if (!status.ok()) {
     std::cout << "Could not configure ntp client" << std::endl;
     return 2;
   }
@@ -68,21 +68,21 @@ int main() {
                               .start_angle = -95 * DEG2RAD,
                               .end_angle = 95 * DEG2RAD});
 
-  if (status != sick_err_t::Ok) {
+  if (!status.ok()) {
     std::cout << "Could not configure scan" << std::endl;
     return 3;
   }
 
   // save the parameters to eeprom, optional
   status = proto.save_params();
-  if (status != sick_err_t::Ok) {
+  if (!status.ok()) {
     std::cout << "Could not save params" << std::endl;
     return 4;
   }
 
   // request the scan data
   status = proto.run();
-  if (status != sick_err_t::Ok) {
+  if (!status.ok()) {
     std::cout << "Could not run scanner" << std::endl;
     return 5;
   }

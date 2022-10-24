@@ -9,7 +9,8 @@
 namespace sick {
 
 /**
- * @brief   Class to emulate Python iterator. Tokenizes string by use of a delimiter.
+ * @brief   Class to emulate Python iterator. Tokenizes string by use of a
+ * delimiter.
  */
 class TokenBuffer {
 
@@ -98,7 +99,7 @@ public:
  * @brief   Structure for holding parse results for one channel
  */
 struct Channel {
-  double ang_incr;         ///< angular step between points
+  double ang_incr;           ///< angular step between points
   std::vector<float> angles; ///< angles of each ray
   std::vector<float>
       values; ///< channel values (meters for distance, 0-255 for intensities)
@@ -236,6 +237,6 @@ bool validate_response(const char *data, size_t len);
  *
  * @return  Error or success code for this telegram
  */
-sick_err_t status_from_bytes_ascii(const char *data, size_t len);
+SickErr status_from_bytes_ascii(const char *data, size_t len);
 
 } // namespace sick

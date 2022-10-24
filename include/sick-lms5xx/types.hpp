@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <string.h>
 #include <string>
 
 static constexpr char STX = '\x02'; ///< telegram start marker
@@ -100,5 +101,27 @@ static std::string sick_err_t_to_string(const sick_err_t &err) {
   };
   return strerrors[static_cast<size_t>(err)];
 }
+class SickErr {
+private:
+  int code_;
+  bool is_posix_err_;
+
+public:
+  SickErr(int error_num) : code_(error_num), is_posix_err_(true) {}
+  SickErr(sick_err_t err)
+      : code_(static_cast<int>(err)), is_posix_err_(false) {}
+  bool ok() const {
+    return is_posix_err_ ? code_ == 0
+                         : code_ == static_cast<int>(sick_err_t::Ok);
+  }
+  int code() const { return code_; }
+  std::string what() const {
+    if (!is_posix_err_) {
+      return sick_err_t_to_string(static_cast<sick_err_t>(code_));
+    } else {
+      return strerror(code_);
+    }
+  }
+};
 
 } // namespace sick
