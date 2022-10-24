@@ -60,6 +60,7 @@ endif()
 add_library(${PROJECT_NAME_UPPER}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME}
+    SYSTEM
     PUBLIC
         $<INSTALL_INTERFACE:include/>
 )
