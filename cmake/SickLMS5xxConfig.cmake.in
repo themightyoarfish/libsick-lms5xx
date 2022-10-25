@@ -21,6 +21,7 @@ if(NOT TARGET SickLMS5xx::SickLMS5xx)
 endif()
 
 # Have to come last as they modify some variable used above.
+include(CMakeFindDependencyMacro)
 find_dependency(Eigen3 3.3.4 REQUIRED)
 find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
 # link the deps so that client projects get them also
