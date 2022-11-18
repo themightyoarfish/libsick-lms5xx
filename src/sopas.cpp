@@ -74,7 +74,7 @@ SickErr SOPASProtocol::start_scan() {
   return sick_err_t::Ok;
 }
 
-void SOPASProtocol::stop() {
+void SOPASProtocol::stop(bool stop_laser) {
   stop_.store(true);
   // for mysterious reasons, sometimes the poller is not joinable even though it
   // is not join()ed anywhere else
@@ -196,7 +196,7 @@ SickErr SOPASProtocolASCII::run() {
   return send_command(LMDSCANDATA, 1);
 }
 
-void SOPASProtocolASCII::stop() {
+void SOPASProtocolASCII::stop(bool stop_laser) {
   SOPASProtocol::stop();
 
   std::array<char, 4096> buffer;
@@ -210,7 +210,7 @@ void SOPASProtocolASCII::stop() {
     std::string answer(&buffer[0], bytes_received);
     if (answer.find("LMDscandata") != std::string::npos) {
       SickErr status = status_from_bytes_ascii(buffer.data(), bytes_received);
-      if (status.ok()) {
+      if (status.ok() && stop_laser) {
         SickErr login_result = set_access_mode(3);
         if (login_result.ok()) {
           SickErr stop_meas_result = send_command(LMCSTOPMEAS);

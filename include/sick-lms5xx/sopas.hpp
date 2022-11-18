@@ -94,9 +94,10 @@ public:
   SickErr start_scan();
 
   /**
-   * @brief Interrupt the scanner, possibly attempt to shut down the laser.
+   * @brief Stop receiving
+   * @param stop_laser attempt to shut down the laser.
    */
-  virtual void stop();
+  virtual void stop(bool stop_laser = false);
 
   virtual ~SOPASProtocol();
 };
@@ -222,7 +223,7 @@ public:
 
   SickErr run() override;
 
-  void stop() override;
+  void stop(bool stop_laser = false) override;
 
   ~SOPASProtocolASCII() {}
 };
