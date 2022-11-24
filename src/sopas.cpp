@@ -1,4 +1,5 @@
 #include <errno.h>
+
 #include <sick-lms5xx/sopas.hpp>
 
 namespace sick {
@@ -20,13 +21,14 @@ static int uninterrupted_send(int fd, const char *data, int len) {
 }
 
 SOPASProtocol::SOPASProtocol(const std::string &sensor_ip, const uint32_t port,
-                             const ScanCallback &fn)
+                             const ScanCallback &fn, unsigned int timeout_s)
     : sensor_ip_(sensor_ip), port_(port), callback_(fn) {
   stop_.store(false);
 
   sock_fd_ = socket(PF_INET, SOCK_STREAM, 0);
   if (sock_fd_ < 0) {
-    throw std::runtime_error("Unable to create socket.");
+    throw std::runtime_error(std::string("Unable to create socket: ") +
+                             strerror(errno));
   }
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
@@ -38,18 +40,19 @@ SOPASProtocol::SOPASProtocol(const std::string &sensor_ip, const uint32_t port,
   // timeout, but we should set a long one to not deadlock during config, and
   // a shorter one during scan parsing to know that we have lost connection.
   struct timeval timeout {
-    .tv_sec = 2, .tv_usec = 0
+    .tv_sec = timeout_s, .tv_usec = 0
   };
 
   setsockopt(sock_fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
   setsockopt(sock_fd_, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
-  constexpr auto connect_timeout = std::chrono::seconds(1);
+  const auto connect_timeout = std::chrono::seconds(timeout_s);
   int connect_result =
       connect_with_timeout(sock_fd_, reinterpret_cast<struct sockaddr *>(&addr),
                            sizeof(addr), connect_timeout);
   if (connect_result < 0) {
-    throw std::runtime_error("Unable to connect to scanner.");
+    throw std::runtime_error(std::string("Unable to connect to scanner: ") +
+                             strerror(errno));
   }
 }
 
@@ -76,8 +79,8 @@ SickErr SOPASProtocol::start_scan() {
 
 void SOPASProtocol::stop(bool stop_laser) {
   stop_.store(true);
-  // for mysterious reasons, sometimes the poller is not joinable even though it
-  // is not join()ed anywhere else
+  // for mysterious reasons, sometimes the poller is not joinable even though
+  // it is not join()ed anywhere else
   if (poller_.joinable()) {
     poller_.join();
   }
@@ -153,7 +156,6 @@ SickErr SOPASProtocolASCII::configure_ntp_client(const std::string &ip) {
 
 SickErr
 SOPASProtocolASCII::set_scan_config(const lms5xx::LMSConfigParams &params) {
-
   const hz frequency = params.frequency;
   const unsigned int hz_Lms = static_cast<unsigned int>(frequency * 100);
   const rad ang_increment = params.resolution;
@@ -218,7 +220,8 @@ void SOPASProtocolASCII::stop(bool stop_laser) {
             /* std::cout << "Stopped measurements." << std::endl; */
           } else {
             // TODO: return an error here?
-            /* std::cout << "Failed to stop measurements." << std::endl; */
+            /* std::cout << "Failed to stop measurements." <<
+             * std::endl; */
           }
         } else {
           // TODO: return an error here?
@@ -226,7 +229,8 @@ void SOPASProtocolASCII::stop(bool stop_laser) {
         }
       } else {
         // TODO: return an error here?
-        /* std::cout << "Scan stop cmd failed: " << sick_err_t_to_string(status)
+        /* std::cout << "Scan stop cmd failed: " <<
+         * sick_err_t_to_string(status)
          */
         /*           << std::endl; */
       }

@@ -38,9 +38,10 @@ public:
    * @param sensor_ip   IP address of the scanner (host name will not work)
    * @param port    SOPAS port
    * @param fn  Callback function
+   * @param timeout_s  Socket timeout in s for both connect and receive
    */
   SOPASProtocol(const std::string &sensor_ip, const uint32_t port,
-                const ScanCallback &fn);
+                const ScanCallback &fn, unsigned int timeout_s = 5);
 
   /**
    * @brief Log out from scanner and request scan data stream. After this, the
