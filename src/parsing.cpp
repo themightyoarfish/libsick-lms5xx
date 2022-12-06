@@ -93,7 +93,7 @@ simple_optional<Scan> ScanBatcher::add_data(const char *data_new,
             // You'd think to check that the start token of the trailing data is
             // STX, but the partial datagrams don't seem to have it
             const size_t new_data_length = length - (etx_idx + 1);
-            std::cout << new_data_length << std::endl;
+            buffer.reserve(new_data_length);
             if (new_data_length > 0) {
                 std::memcpy(buffer.data(), data_new + etx_idx + 1,
                             new_data_length);
