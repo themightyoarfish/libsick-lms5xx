@@ -29,7 +29,7 @@ static atomic<int> n_scans;
 
 #ifdef WITH_PCL
 static void cbk(const Scan &scan) {
-  const auto cloud = sick::pcl::cloud_from_scan(scan);
+  const auto cloud = sick::pcl::cloud_ptr_from_scan(scan);
   ::pcl::io::savePCDFileASCII(string("cloud-") + to_string(n_scans) + ".pcd",
                               *cloud);
   std::cout << "Got scan with " << cloud->size() << " points." << std::endl;
