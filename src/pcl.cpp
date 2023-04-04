@@ -3,6 +3,21 @@
 
 namespace sick {
 namespace pcl {
+
+::pcl::PointCloud<::pcl::PointXYZI>::Ptr
+cloud_ptr_from_scan(const sick::Scan &scan) {
+  ::pcl::PointCloud<::pcl::PointXYZI>::Ptr cloud_out =
+      ::pcl::make_shared<::pcl::PointCloud<::pcl::PointXYZI>>();
+  cloud_out->resize(scan.ranges.size());
+  for (int i = 0; i < scan.ranges.size(); ++i) {
+    cloud_out->points[i].x = scan.ranges(i) * scan.cos_map(i);
+    cloud_out->points[i].y = scan.ranges(i) * scan.sin_map(i);
+    cloud_out->points[i].z = 0;
+    cloud_out->points[i].intensity = scan.intensities[i];
+  }
+  return cloud_out;
+}
+
 ::pcl::PointCloud<::pcl::PointXYZI> cloud_from_scan(const sick::Scan &scan) {
   ::pcl::PointCloud<::pcl::PointXYZI> cloud_out;
   cloud_out.resize(scan.ranges.size());

@@ -38,9 +38,10 @@ public:
    * @param sensor_ip   IP address of the scanner (host name will not work)
    * @param port    SOPAS port
    * @param fn  Callback function
+   * @param timeout_s  Socket timeout in s for both connect and receive
    */
   SOPASProtocol(const std::string &sensor_ip, const uint32_t port,
-                const ScanCallback &fn);
+                const ScanCallback &fn, unsigned int timeout_s = 5);
 
   /**
    * @brief Log out from scanner and request scan data stream. After this, the
@@ -48,7 +49,7 @@ public:
    *
    * @return Error or success
    */
-  virtual sick_err_t run() = 0;
+  virtual SickErr run() = 0;
 
   /**
    * @brief Log in to the scanner
@@ -58,8 +59,8 @@ public:
    *
    * @return    Error or success
    */
-  virtual sick_err_t set_access_mode(const uint8_t mode,
-                                     const uint32_t pw_hash) = 0;
+  virtual SickErr set_access_mode(const uint8_t mode,
+                                  const uint32_t pw_hash) = 0;
 
   /**
    * @brief Configure the scanner as NTP client
@@ -68,7 +69,7 @@ public:
    *
    * @return    Error or success
    */
-  virtual sick_err_t configure_ntp_client(const std::string &ip) = 0;
+  virtual SickErr configure_ntp_client(const std::string &ip) = 0;
 
   /**
    * @brief Set new scan configuration
@@ -77,26 +78,27 @@ public:
    *
    * @return Error or success
    */
-  virtual sick_err_t set_scan_config(const lms5xx::LMSConfigParams &params) = 0;
+  virtual SickErr set_scan_config(const lms5xx::LMSConfigParams &params) = 0;
 
   /**
    * @brief Save the scan configuration on the device
    *
    * @return    Error or success
    */
-  virtual sick_err_t save_params() = 0;
+  virtual SickErr save_params() = 0;
 
   /**
    * @brief Start the thread to receive scan data and get the callback invoked
    *
    * @return    Error or success
    */
-  sick_err_t start_scan();
+  SickErr start_scan();
 
   /**
-   * @brief Interrupt the scanner, possibly attempt to shut down the laser.
+   * @brief Stop receiving
+   * @param stop_laser attempt to shut down the laser.
    */
-  virtual void stop();
+  virtual void stop(bool stop_laser = false);
 
   virtual ~SOPASProtocol();
 };
@@ -132,8 +134,8 @@ int send_sopas_command(int sock_fd, const char *data, size_t len);
  *
  * @return  Error code or success
  */
-sick_err_t send_sopas_command_and_check_answer(int sock_fd, const char *data,
-                                               size_t len);
+SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
+                                            size_t len);
 
 /**
  * @brief   Implementation of the ASCII sopas protocol. This protocol is
@@ -158,7 +160,8 @@ class SOPASProtocolASCII : public SOPASProtocol {
       // not documented
       {LMDSCANDATACFG, "\x02sWN LMDscandatacfg 00 00 1 0 0 0 00 0 0 0 1 1\x03"},
       {FRECHOFILTER, "\x02sWN FREchoFilter %u\x03"},
-      {LMPOUTPUTRANGE, "\x02sWN LMPoutputRange 1 +%4u %+d %+d\x03"},
+      {LMPOUTPUTRANGE_WRITE, "\x02sWN LMPoutputRange 1 +%4u %+d %+d\x03"},
+      {LMPOUTPUTRANGE_READ, "\x02sRN LMPoutputRange\x03"},
       {MEEWRITEALL, "\x02sMN mEEwriteall\x03"},
       {RUN, "\x02sMN Run\x03"},
       {LMDSCANDATA, "\x02sEN LMDscandata %u\x03"},
@@ -168,8 +171,8 @@ class SOPASProtocolASCII : public SOPASProtocol {
                                      ///<    to fill arguments into
 
 public:
-  sick_err_t set_access_mode(const uint8_t mode = 3,
-                             const uint32_t pw_hash = 0xF4724744) override;
+  SickErr set_access_mode(const uint8_t mode = 3,
+                          const uint32_t pw_hash = 0xF4724744) override;
 
   /**
    * @brief Function to assemble a command message with the use of `sprintf()`
@@ -204,24 +207,24 @@ public:
    * @return    Error result from `send_sopas_command_and_check_answer()`
    */
   template <typename... Args>
-  sick_err_t send_command(SOPASCommand cmd, Args... args) {
+  SickErr send_command(SOPASCommand cmd, Args... args) {
     std::array<char, 4096> buffer;
     int bytes_written = make_command_msg(buffer.data(), cmd, args...);
 
-    sick_err_t result = send_sopas_command_and_check_answer(
+    SickErr result = send_sopas_command_and_check_answer(
         sock_fd_, buffer.data(), bytes_written);
     return result;
   }
 
-  sick_err_t configure_ntp_client(const std::string &ip) override;
+  SickErr configure_ntp_client(const std::string &ip) override;
 
-  sick_err_t set_scan_config(const lms5xx::LMSConfigParams &params) override;
+  SickErr set_scan_config(const lms5xx::LMSConfigParams &params) override;
 
-  sick_err_t save_params() override;
+  SickErr save_params() override;
 
-  sick_err_t run() override;
+  SickErr run() override;
 
-  void stop() override;
+  void stop(bool stop_laser = false) override;
 
   ~SOPASProtocolASCII() {}
 };

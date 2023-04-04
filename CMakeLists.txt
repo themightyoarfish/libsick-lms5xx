@@ -8,7 +8,6 @@ message(STATUS "CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}")
 
 find_package(Eigen3 3.3.4 REQUIRED)
 set(SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/example.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/parsing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/network.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util.cpp
@@ -40,7 +39,7 @@ endif()
 
 option(BUILD_EXAMPLE "Build example code" ON)
 if(BUILD_EXAMPLE)
-    add_executable(example)
+    add_executable(example ${CMAKE_CURRENT_SOURCE_DIR}/src/example.cpp)
     target_include_directories(example PRIVATE SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_sources(example PRIVATE ${SRCS})
     target_link_libraries(example PRIVATE ${LIBS})
@@ -52,11 +51,23 @@ if(BUILD_EXAMPLE)
     endif()
 endif()
 
-add_library(${PROJECT_NAME} SHARED ${SRCS})
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+if (BUILD_SHARED_LIBS)
+    add_library(${PROJECT_NAME} SHARED ${SRCS})
+else()
+    add_library(${PROJECT_NAME} STATIC ${SRCS})
+endif()
+
 add_library(${PROJECT_NAME_UPPER}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
 target_include_directories(${PROJECT_NAME}
+    SYSTEM
     PUBLIC
-        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:include/>
+)
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        # build tree includes need to be added only during build, not install
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         ${EIGEN3_INCLUDE_DIRS}
 )
@@ -107,9 +118,13 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
-configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME_UPPER}Config.cmake.in
+set(INCLUDE_INSTALL_DIR include/)
+set(LIBRARY_INSTALL_DIR lib/)
+configure_package_config_file(
+    ${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME_UPPER}Config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME_UPPER}Config.cmake
     INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+    PATH_VARS INCLUDE_INSTALL_DIR LIBRARY_INSTALL_DIR
 )
 
 # install the cmake config and config version scripts

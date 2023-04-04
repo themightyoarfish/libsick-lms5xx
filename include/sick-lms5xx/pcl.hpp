@@ -15,6 +15,9 @@ namespace pcl {
  *
  * @return  Point cloud
  */
+::pcl::PointCloud<::pcl::PointXYZI>::Ptr
+cloud_ptr_from_scan(const sick::Scan &scan);
+
 ::pcl::PointCloud<::pcl::PointXYZI> cloud_from_scan(const sick::Scan &scan);
 
 } // namespace pcl

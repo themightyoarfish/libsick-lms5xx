@@ -16,8 +16,10 @@ TokenBuffer::TokenBuffer(const char *tokens, size_t len, char delim) {
       begin_tok = idx + 1;
     }
   }
-  string final_token(tokens + begin_tok, len - begin_tok + 1);
-  tokens_copy_.push_back(final_token);
+  if (begin_tok < len) {
+    string final_token(tokens + begin_tok, len - begin_tok);
+    tokens_copy_.push_back(final_token);
+  }
   iter_ = tokens_copy_.begin();
 }
 
@@ -46,6 +48,10 @@ ScanBatcher::ScanBatcher() { num_bytes_buffered = 0; }
 
 simple_optional<Scan> ScanBatcher::add_data(const char *data_new,
                                             size_t length) {
+  if (length < 1) {
+    return simple_optional<Scan>();
+  }
+
   // check if etx found
   int etx_idx = -1;
   for (size_t i = 0; i < length; ++i) {
@@ -62,14 +68,12 @@ simple_optional<Scan> ScanBatcher::add_data(const char *data_new,
   // 2. no etx found -> append all data
   if (etx_idx < 0) {
     buffer.reserve(num_bytes_buffered + length + 1);
-    char *buf_begin = buffer.data();
-    std::memcpy(buf_begin + num_bytes_buffered, data_new, length);
+    std::memcpy(buffer.data() + num_bytes_buffered, data_new, length);
     num_bytes_buffered += length;
   } else {
     // etx found
     buffer.reserve(num_bytes_buffered + etx_idx + 1);
-    char *buf_begin = buffer.data();
-    std::memcpy(buf_begin + num_bytes_buffered, data_new, etx_idx + 1);
+    std::memcpy(buffer.data() + num_bytes_buffered, data_new, etx_idx + 1);
     num_bytes_buffered += etx_idx + 1;
     if (buffer[0] == STX && buffer[num_bytes_buffered - 1] == ETX) {
       // try to parse scan telegram
@@ -89,8 +93,10 @@ simple_optional<Scan> ScanBatcher::add_data(const char *data_new,
       // You'd think to check that the start token of the trailing data is
       // STX, but the partial datagrams don't seem to have it
       const size_t new_data_length = length - (etx_idx + 1);
-      char *buf_begin = buffer.data();
-      std::memcpy(buf_begin, data_new + etx_idx + 1, new_data_length);
+      buffer.reserve(new_data_length);
+      if (new_data_length > 0) {
+        std::memcpy(buffer.data(), data_new + etx_idx + 1, new_data_length);
+      }
       num_bytes_buffered = new_data_length;
     }
   }
@@ -167,7 +173,8 @@ bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
   }
   const long num_16bit_channels = strtol(buf.next(), &p, 16);
   if (num_16bit_channels != 1) {
-    throw std::runtime_error("num_16bit_channels != 1");
+    return false;
+    /* throw std::runtime_error(__fun__+ ": num_16bit_channels != 1"); */
   }
 
   std::vector<Channel> channels_16bit(num_16bit_channels);
@@ -177,8 +184,9 @@ bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
 
   const long num_8bit_channels = strtol(buf.next(), &p, 16);
   if (num_8bit_channels != 1) {
-    throw std::runtime_error("num_8bit_channels = " +
-                             std::to_string(num_8bit_channels));
+    return false;
+    /* throw std::runtime_error(__func__ + ": num_8bit_channels = " + */
+    /*                          std::to_string(num_8bit_channels)); */
   }
 
   std::vector<Channel> channels_8bit(num_8bit_channels);
@@ -211,29 +219,35 @@ bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
     tm.tm_hour = h;
     tm.tm_min = mi;
     tm.tm_sec = s;
+    tm.tm_isdst = -1;
     std::time_t tmt = std::mktime(&tm);
     std::chrono::system_clock::time_point stamp =
         std::chrono::system_clock::from_time_t(tmt) +
         std::chrono::microseconds(us);
 
     if (channels_16bit.size() < 1) {
-      throw std::runtime_error("parse_scan_telegram() got no 16bit channels");
+      return false;
+      /* throw std::runtime_error(__func__ + */
+      /*                          ": parse_scan_telegram() got no 16bit channels"); */
     } else {
       const Channel &range_cn = channels_16bit.front();
       if (range_cn.description.find("DIST") == std::string::npos) {
-        throw std::runtime_error("First 16bit channel was not range but " +
-                                 range_cn.description);
+        return false;
+        /* throw std::runtime_error( */
+        /*     __func__ + ": First 16bit channel was not range but " + */
+        /*     range_cn.description); */
       } else {
         const Channel &intensity_cn = channels_8bit.front();
         if (intensity_cn.description.find("RSSI") == std::string::npos) {
-          throw std::runtime_error("First 8bit channel was not intensity but " +
-                                   range_cn.description);
+          return false;
+          /* throw std::runtime_error( */
+          /*     __func__ + ": First 8bit channel was not intensity but " + */
+          /*     range_cn.description); */
         } else {
           if (range_cn.values.size() != intensity_cn.values.size()) {
             throw std::runtime_error(
                 "Ranges and intensities not matched in size.");
           } else {
-
             if (scan.ranges.size() == 0) {
               // first time -> fill nonchanging fields
               scan.size = range_cn.values.size();
@@ -313,7 +327,7 @@ bool validate_response(const char *data, size_t len) {
   return n_stx == 1 && n_etx == 1;
 }
 
-sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
+SickErr status_from_bytes_ascii(const char *data, size_t len) {
   if (!validate_response(data, len)) {
     return sick_err_t::CustomErrorInvalidDatagram;
   }
@@ -324,7 +338,7 @@ sick_err_t status_from_bytes_ascii(const char *data, size_t len) {
     unsigned int status = 0;
     int scanf_result = sscanf(data, pattern, &status);
     if (scanf_result != 1) {
-      // parse error
+      return sick_err_t::CustomError;
     }
     return static_cast<sick_err_t>(status);
   } else {
