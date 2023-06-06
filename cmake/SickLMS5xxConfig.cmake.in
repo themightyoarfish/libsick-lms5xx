@@ -26,3 +26,4 @@ find_dependency(Eigen3 3.3.4 REQUIRED)
 find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
 # link the deps so that client projects get them also
 target_link_libraries(SickLMS5xx::SickLMS5xx INTERFACE Eigen3::Eigen pcl_common pcl_io)
+target_include_directories(SickLMS5xx::SickLMS5xx INTERFACE $<INSTALL_INTERFACE:include)
