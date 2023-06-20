@@ -304,6 +304,9 @@ bool status_ok(const std::string &cmd_name, int status_code) {
     // 0 means stop, 1 means start, there is no error
     return true;
   }
+  if (cmd_name == "LMPscancfg") {
+    return status_code == 1;
+  }
   return status_code == 1;
 }
 
