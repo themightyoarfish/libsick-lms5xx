@@ -12,7 +12,7 @@ else()
 endif()
 set(SickLMS5xx_LIBRARIES ${SickLMS5xx_LIBRARY})
 
-# Souce the target definitions if this package is used as a binary rather than built
+# Source the target definitions if this package is used as a binary rather than built
 # alongside the client project. CMAKE_CURRENT_LIST_DIR in that context will be the dir
 # where this package installs its cmake files (aka INSTALL_CONFIGDIR in main
 # CMakeLists.txt)
@@ -26,4 +26,4 @@ find_dependency(Eigen3 3.3.4 REQUIRED)
 find_dependency(PCL 1.11 REQUIRED COMPONENTS common io)
 # link the deps so that client projects get them also
 target_link_libraries(SickLMS5xx::SickLMS5xx INTERFACE Eigen3::Eigen pcl_common pcl_io)
-target_include_directories(SickLMS5xx::SickLMS5xx SYSTEM INTERFACE ${SickLMS5xx_INCLUDE_DIR})
+target_include_directories(SickLMS5xx::SickLMS5xx INTERFACE $<INSTALL_INTERFACE:include>)
