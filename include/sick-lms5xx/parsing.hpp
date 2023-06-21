@@ -178,7 +178,7 @@ public:
  * @brief   Enum for known scanner commands.
  */
 enum SOPASCommand {
-    REBOOT,
+  REBOOT,
   SETACCESSMODE,
   TSCROLE,
   TSCTCINTERFACE,

@@ -87,6 +87,10 @@ public:
    */
   virtual SickErr save_params() = 0;
 
+  /**
+   * @brief send reboot command. Takes a while to return.
+   * @return Error or success
+   */
   virtual SickErr reboot() = 0;
 
   /**
@@ -95,7 +99,6 @@ public:
    * @return    Error or success
    */
   SickErr start_scan();
-
 
   /**
    * @brief Stop receiving

@@ -1,8 +1,7 @@
 #include <errno.h>
 
-#include <sick-lms5xx/sopas.hpp>
 #include <iostream>
-
+#include <sick-lms5xx/sopas.hpp>
 
 namespace sick {
 
