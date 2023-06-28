@@ -147,8 +147,7 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
  *
  * @return  Error code or success
  */
-std::string send_sopas_command_and_return_raw(int sock_fd, const char *data,
-                                              size_t len);
+std::string send_return(int sock_fd, const char *data, size_t len);
 
 /**
  * @brief   Implementation of the ASCII sopas protocol. This protocol is
@@ -208,7 +207,6 @@ public:
     if (bytes_written < 0) {
       throw std::runtime_error("sprintf fail");
     }
-    // std::cout << std::to_string(bytes_written) << std::endl;
     return bytes_written;
   }
 
@@ -236,8 +234,8 @@ public:
     std::array<char, 4096> buffer;
     int bytes_written = make_command_msg(buffer.data(), cmd, args...);
 
-    std::string raw_answer = send_sopas_command_and_return_raw(
-        sock_fd_, buffer.data(), bytes_written);
+    std::string raw_answer =
+        send_return(sock_fd_, buffer.data(), bytes_written);
     return raw_answer;
   }
 

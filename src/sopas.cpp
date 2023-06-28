@@ -127,8 +127,7 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
   return status_from_bytes_ascii(recvbuf.data(), recv_result);
 }
 
-std::string send_sopas_command_and_return_raw(int sock_fd, const char *data,
-                                              size_t len) {
+std::string send_return(int sock_fd, const char *data, size_t len) {
   int send_result = send_sopas_command(sock_fd, data, len);
   if (send_result < 0) {
     return "SEND RESULT < 0";
