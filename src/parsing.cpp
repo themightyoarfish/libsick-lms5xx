@@ -341,6 +341,7 @@ SickErr status_from_bytes_ascii(const char *data, size_t len) {
     unsigned int status = 0;
     int scanf_result = sscanf(data, pattern, &status);
     if (scanf_result != 1) {
+      std::cout << scanf_result << std::endl;
       return sick_err_t::CustomError;
     }
     return static_cast<sick_err_t>(status);

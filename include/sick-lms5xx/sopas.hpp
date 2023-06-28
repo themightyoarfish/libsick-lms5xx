@@ -5,6 +5,7 @@
 #include <memory>
 #include <sick-lms5xx/network.hpp>
 #include <sick-lms5xx/parsing.hpp>
+#include <string>
 #include <thread>
 #include <unistd.h>
 
@@ -195,6 +196,7 @@ public:
     if (bytes_written < 0) {
       throw std::runtime_error("sprintf fail");
     }
+    std::cout << std::to_string(bytes_written) << std::endl;
     return bytes_written;
   }
 

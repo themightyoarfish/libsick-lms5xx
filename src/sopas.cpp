@@ -1,6 +1,8 @@
 #include <errno.h>
 
+#include <ostream>
 #include <sick-lms5xx/sopas.hpp>
+#include <string>
 
 namespace sick {
 
@@ -209,7 +211,9 @@ void SOPASProtocolASCII::stop(bool stop_laser) {
   }
   while (true) {
     int bytes_received = receive_sopas_reply(sock_fd_, &buffer[0], 4096);
+    std::cout << std::to_string(bytes_received) << std::endl;
     std::string answer(&buffer[0], bytes_received);
+    std::cout << "answer: " << answer << std::endl;
     if (answer.find("LMDscandata") != std::string::npos) {
       SickErr status = status_from_bytes_ascii(buffer.data(), bytes_received);
       if (status.ok() && stop_laser) {
