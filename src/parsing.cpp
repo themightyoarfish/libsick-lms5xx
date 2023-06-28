@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sick-lms5xx/parsing.hpp>
+#include <string>
 
 using namespace std;
 
@@ -351,6 +352,7 @@ SickErr status_from_bytes_ascii(const char *data, size_t len) {
     std::string cmd_name(buf.next());
     if (buf.has_next()) {
       int status_code = atoi(buf.next());
+      std::cout << std::to_string(status_code) << std::endl;
       if (status_ok(cmd_name, status_code)) {
         return sick_err_t::Ok;
       } else {
