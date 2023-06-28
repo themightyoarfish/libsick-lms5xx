@@ -127,6 +127,26 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
   return status_from_bytes_ascii(recvbuf.data(), recv_result);
 }
 
+std::string send_sopas_command_and_return_raw(int sock_fd, const char *data,
+                                              size_t len) {
+  int send_result = send_sopas_command(sock_fd, data, len);
+  if (send_result < 0) {
+    return "SEND RESULT < 0";
+  } else if (send_result == 0) {
+    return "SEND RESULT = 0";
+  }
+  std::array<char, 4096> recvbuf;
+  // fill with 0s so we have a null-terminated string
+  recvbuf.fill(0x00);
+  int recv_result = receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
+  if (recv_result < 0) {
+    return "RCV RESULT < 0";
+  } else if (recv_result == 0) {
+    return "RCV RESULT = 0";
+  }
+  return raw_from_buffer(recvbuf.data(), recv_result);
+}
+
 SickErr SOPASProtocolASCII::set_access_mode(const uint8_t mode,
                                             const uint32_t pw_hash) {
   std::array<char, 128> buffer;
@@ -211,9 +231,9 @@ void SOPASProtocolASCII::stop(bool stop_laser) {
   }
   while (true) {
     int bytes_received = receive_sopas_reply(sock_fd_, &buffer[0], 4096);
-    std::cout << std::to_string(bytes_received) << std::endl;
+    // std::cout << std::to_string(bytes_received) << std::endl;
     std::string answer(&buffer[0], bytes_received);
-    std::cout << "answer: " << answer << std::endl;
+    // std::cout << "answer: " << answer << std::endl;
     if (answer.find("LMDscandata") != std::string::npos) {
       SickErr status = status_from_bytes_ascii(buffer.data(), bytes_received);
       if (status.ok() && stop_laser) {

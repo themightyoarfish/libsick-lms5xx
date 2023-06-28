@@ -360,5 +360,12 @@ SickErr status_from_bytes_ascii(const char *data, size_t len) {
       return sick_err_t::Ok;
   }
 }
+std::string raw_from_buffer(const char *data, size_t len) {
+  if (!validate_response(data, len)) {
+    return "No valid response";
+  }
+  const std::string answer_method = method(data, len);
+  return data;
+}
 
 } // namespace sick

@@ -240,4 +240,6 @@ bool validate_response(const char *data, size_t len);
  */
 SickErr status_from_bytes_ascii(const char *data, size_t len);
 
+std::string raw_from_buffer(const char *data, size_t len);
+
 } // namespace sick
