@@ -72,7 +72,7 @@ public:
    */
   virtual SickErr configure_ntp_client(const std::string &ip) = 0;
 
-  virtual std::string send_raw_command(SOPASCommand cmd);
+  virtual std::string send_raw_command(SOPASCommand cmd) = 0;
 
   /**
    * @brief Set new scan configuration
