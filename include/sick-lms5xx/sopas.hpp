@@ -141,17 +141,6 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
                                             size_t len);
 
 /**
- * @brief   Send a command and parse the raw answer
- *
- * @param sock_fd   Socket file descroptor
- * @param data       data buffer to send
- * @param len   number of bytes to write
- *
- * @return  Error code or success
- */
-std::string send_return(int sock_fd, const char *data, size_t len);
-
-/**
  * @brief   Implementation of the ASCII sopas protocol. This protocol is
  * wasteful in terms of bandwidth, but easier to parse. For the LMS scanner this
  * is fine since the data rate is quite low.
@@ -212,6 +201,16 @@ public:
     return bytes_written;
   }
 
+  /**
+   * @brief   Send a command and parse the raw answer
+   *
+   * @param sock_fd   Socket file descroptor
+   * @param data       data buffer to send
+   * @param len   number of bytes to write
+   *
+   * @return  Error code or success
+   */
+  std::string send_return(int sock_fd, const char *data, size_t len);
   /**
    * @brief Send a SOPAS command to the socket
    *
