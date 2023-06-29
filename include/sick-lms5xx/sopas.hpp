@@ -229,15 +229,7 @@ public:
     return result;
   }
 
-  template <typename... Args>
-  std::string send_raw_command(SOPASCommand cmd, Args... args) {
-    std::array<char, 4096> buffer;
-    int bytes_written = make_command_msg(buffer.data(), cmd, args...);
-
-    std::string raw_answer =
-        send_return(sock_fd_, buffer.data(), bytes_written);
-    return raw_answer;
-  }
+  std::string send_raw_command(SOPASCommand cmd);
 
   SickErr configure_ntp_client(const std::string &ip) override;
 

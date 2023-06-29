@@ -126,6 +126,14 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
   }
   return status_from_bytes_ascii(recvbuf.data(), recv_result);
 }
+std::string SOPASProtocolASCII::send_raw_command(SOPASCommand cmd) {
+  std::array<char, 4096> buffer;
+  int bytes_written = make_command_msg(buffer.data(), cmd);
+
+  std::string raw_answer =
+      send_return(this->sock_fd_, buffer.data(), bytes_written);
+  return raw_answer;
+}
 
 std::string send_return(int sock_fd, const char *data, size_t len) {
   int send_result = send_sopas_command(sock_fd, data, len);
