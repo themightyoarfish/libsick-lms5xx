@@ -72,6 +72,8 @@ public:
    */
   virtual SickErr configure_ntp_client(const std::string &ip) = 0;
 
+  virtual std::string send_raw_command(SOPASCommand cmd);
+
   /**
    * @brief Set new scan configuration
    *
