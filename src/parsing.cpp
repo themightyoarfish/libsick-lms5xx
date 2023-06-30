@@ -1,6 +1,5 @@
 #include <iostream>
 #include <sick-lms5xx/parsing.hpp>
-#include <string>
 
 using namespace std;
 

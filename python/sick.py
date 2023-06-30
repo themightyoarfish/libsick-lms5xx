@@ -244,9 +244,6 @@ def main():
     storeparams_cmd = "\x02sMN mEEwriteall\x03"
     reply = send_command(storeparams_cmd)
 
-    get_params_cmd = "\x02sRN LMPscancfg\x03"
-    reply = send_command(get_params_cmd)
-
     run_cmd = "\x02sMN Run\x03"
     reply = send_command(run_cmd)
     # stop_cmd = "\x02sMN LMCstopmeas\x03"

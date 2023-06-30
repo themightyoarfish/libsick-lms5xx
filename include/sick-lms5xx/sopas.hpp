@@ -5,7 +5,6 @@
 #include <memory>
 #include <sick-lms5xx/network.hpp>
 #include <sick-lms5xx/parsing.hpp>
-#include <string>
 #include <thread>
 #include <unistd.h>
 
@@ -70,8 +69,6 @@ public:
    * @return    Error or success
    */
   virtual SickErr configure_ntp_client(const std::string &ip) = 0;
-
-  virtual std::string send_raw_command(SOPASCommand cmd) = 0;
 
   /**
    * @brief Set new scan configuration
@@ -168,10 +165,9 @@ class SOPASProtocolASCII : public SOPASProtocol {
       {RUN, "\x02sMN Run\x03"},
       {LMDSCANDATA, "\x02sEN LMDscandata %u\x03"},
       {LMCSTOPMEAS, "\x02sMN LMCstopmeas\x03"},
-      {LMCSTARTMEAS, "\x02sMN LMCstartmeas\x03"},
-      {GETSCANCONFIG,
-       "\x02sRN LMPscancfg\x03"}}; ///<    map from commands to format strings
-                                   ///<    to fill arguments into
+      {LMCSTARTMEAS,
+       "\x02sMN LMCstartmeas\x03"}}; ///<    map from commands to format strings
+                                     ///<    to fill arguments into
 
 public:
   SickErr set_access_mode(const uint8_t mode = 3,
@@ -218,8 +214,6 @@ public:
         sock_fd_, buffer.data(), bytes_written);
     return result;
   }
-
-  std::string send_raw_command(SOPASCommand cmd) override;
 
   SickErr configure_ntp_client(const std::string &ip) override;
 
