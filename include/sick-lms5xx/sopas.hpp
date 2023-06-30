@@ -28,9 +28,8 @@ protected:
   std::thread poller_;     ///< scanner polling thread
   ScanBatcher batcher_;    ///< batcher for partial telegrams
 
-  int sock_fd_; ///< socket file descriptor
-
 public:
+  int sock_fd_; ///< socket file descriptor
   using SOPASProtocolPtr = std::shared_ptr<SOPASProtocol>;
 
   /**
