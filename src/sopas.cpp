@@ -132,7 +132,9 @@ std::string SOPASProtocolASCII::send_raw_command(SOPASCommand cmd) {
   std::cout << "buffer" << std::endl;
   std::array<char, 4096> buffer_w;
   std::cout << "buffer created" << std::endl;
-  int bytes_written = make_command_msg(buffer_w.data(), cmd, 0);
+  std::string out_str = "\x02sRN LMPscancfg\x03";
+  int bytes_written = std::sprintf(buffer_w.data(), out_str.c_str(), 0);
+  // int bytes_written = make_command_msg(buffer_w.data(), cmd, 0);
   std::cout << "bytes written " << std::endl;
 
   // int send_result =
