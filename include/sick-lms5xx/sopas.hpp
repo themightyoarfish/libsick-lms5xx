@@ -230,7 +230,7 @@ public:
     return result;
   }
 
-  std::string send_raw_command(SOPASCommand cmd) override;
+  std::string send_raw_command(SOPASCommand cmd);
 
   SickErr configure_ntp_client(const std::string &ip) override;
 
