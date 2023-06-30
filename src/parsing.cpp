@@ -305,9 +305,6 @@ bool status_ok(const std::string &cmd_name, int status_code) {
     // 0 means stop, 1 means start, there is no error
     return true;
   }
-  if (cmd_name == "LMPscancfg") {
-    return status_code == 1;
-  }
   return status_code == 1;
 }
 
@@ -342,7 +339,6 @@ SickErr status_from_bytes_ascii(const char *data, size_t len) {
     unsigned int status = 0;
     int scanf_result = sscanf(data, pattern, &status);
     if (scanf_result != 1) {
-      std::cout << scanf_result << std::endl;
       return sick_err_t::CustomError;
     }
     return static_cast<sick_err_t>(status);
@@ -352,7 +348,6 @@ SickErr status_from_bytes_ascii(const char *data, size_t len) {
     std::string cmd_name(buf.next());
     if (buf.has_next()) {
       int status_code = atoi(buf.next());
-      std::cout << std::to_string(status_code) << std::endl;
       if (status_ok(cmd_name, status_code)) {
         return sick_err_t::Ok;
       } else {
@@ -361,13 +356,6 @@ SickErr status_from_bytes_ascii(const char *data, size_t len) {
     } else
       return sick_err_t::Ok;
   }
-}
-std::string raw_from_buffer(const char *data, size_t len) {
-  if (!validate_response(data, len)) {
-    return "No valid response";
-  }
-  const std::string answer_method = method(data, len);
-  return data;
 }
 
 } // namespace sick

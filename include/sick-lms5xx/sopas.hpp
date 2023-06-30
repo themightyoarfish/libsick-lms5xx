@@ -202,16 +202,6 @@ public:
   }
 
   /**
-   * @brief   Send a command and parse the raw answer
-   *
-   * @param sock_fd   Socket file descroptor
-   * @param data       data buffer to send
-   * @param len   number of bytes to write
-   *
-   * @return  Error code or success
-   */
-  std::string send_return(int sock_fd, const char *data, size_t len);
-  /**
    * @brief Send a SOPAS command to the socket
    *
    * @tparam Args   Command parameter types
