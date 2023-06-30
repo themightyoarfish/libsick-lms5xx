@@ -125,6 +125,63 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
   return status_from_bytes_ascii(recvbuf.data(), recv_result);
 }
 
+std::string SOPASProtocolASCII::send_raw_command(SOPASCommand cmd) {
+  std::cout << "buffer" << std::endl;
+  std::array<char, 4096> buffer_w;
+  std::cout << "buffer created" << std::endl;
+  std::string out_str = "\x02sRN LMPscancfg\x03";
+  int bytes_written = std::sprintf(buffer_w.data(), out_str.c_str(), 0);
+  // int bytes_written = make_command_msg(buffer_w.data(), cmd, 0);
+  std::cout << "bytes written " << std::endl;
+
+  // int send_result =
+  //     send_sopas_command(this->sock_fd_, buffer_w.data(), bytes_written);
+
+  int send_result;
+  while ((send_result =
+              send(this->sock_fd_, buffer_w.data(), bytes_written, 0)) == -1 &&
+         errno == EINTR) {
+    continue;
+  }
+  std::cout << "send result " << std::endl;
+  if (send_result < 0) {
+    return "SEND RESULT < 0";
+  } else if (send_result == 0) {
+    return "SEND RESULT = 0";
+  }
+
+  std::cout << "create rcv buffer " << std::endl;
+  int len = 4096;
+  std::array<char, 4096> recvbuf;
+  recvbuf.fill(0x00);
+
+  std::cout << "rcv result " << std::endl;
+
+  int recv_result;
+  while ((recv_result = recv(this->sock_fd_, recvbuf.data(), len, 0)) == -1 &&
+         errno == EINTR) {
+    continue;
+  }
+  if (recv_result < 0) {
+    return "RCV RESULT < 0";
+  } else if (recv_result == 0) {
+    return "RCV RESULT = 0";
+  }
+  auto data = recvbuf.data();
+  std::array<char, 4096>::value_type *ptr = data;
+  std::cout << "rcv result finished printing .... :  " << std::endl;
+
+  for (int i = 0; i < buffer_w.size(); ++i) {
+    std::cout << ptr[i];
+  }
+  if (!validate_response(data, len)) {
+    return "No valid response";
+  }
+  std::string answer_method = method(data, len);
+
+  return data;
+}
+
 SickErr SOPASProtocolASCII::set_access_mode(const uint8_t mode,
                                             const uint32_t pw_hash) {
   std::array<char, 128> buffer;
