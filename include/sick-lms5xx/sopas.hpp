@@ -72,7 +72,7 @@ public:
    */
   virtual SickErr configure_ntp_client(const std::string &ip) = 0;
 
-  // virtual std::string send_raw_command(SOPASCommand cmd) = 0;
+  virtual std::string send_raw_command(SOPASCommand cmd) = 0;
 
   /**
    * @brief Set new scan configuration
@@ -230,7 +230,7 @@ public:
     return result;
   }
 
-  std::string send_raw_command(SOPASCommand cmd);
+  std::string send_raw_command(SOPASCommand cmd) override;
 
   SickErr configure_ntp_client(const std::string &ip) override;
 
