@@ -130,12 +130,9 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
 
 std::string SOPASProtocolASCII::send_raw_command(SOPASCommand cmd) {
   std::array<char, 4096> buffer_w;
-  std::cout << "0 ---------" << std::endl;
   int bytes_written = make_command_msg(buffer_w.data(), cmd, 0);
-  std::cout << "1 ---------" << std::endl;
   std::string raw_answer =
       send_return(this->sock_fd_, buffer_w.data(), bytes_written);
-  std::cout << "2 ---------" << std::endl;
   return raw_answer;
 }
 
