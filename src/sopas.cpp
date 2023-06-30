@@ -129,11 +129,58 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
 }
 
 std::string SOPASProtocolASCII::send_raw_command(SOPASCommand cmd) {
+  std::cout << "buffer" << std::endl;
   std::array<char, 4096> buffer_w;
+  std::cout << "buffer created" << std::endl;
   int bytes_written = make_command_msg(buffer_w.data(), cmd, 0);
-  std::string raw_answer =
-      send_return(this->sock_fd_, buffer_w.data(), bytes_written);
-  return raw_answer;
+  std::cout << "bytes written " << std::endl;
+
+  // int send_result =
+  //     send_sopas_command(this->sock_fd_, buffer_w.data(), bytes_written);
+
+  int send_result;
+  while ((send_result =
+              send(this->sock_fd_, buffer_w.data(), bytes_written, 0)) == -1 &&
+         errno == EINTR) {
+    continue;
+  }
+  std::cout << "send result " << std::endl;
+  if (send_result < 0) {
+    return "SEND RESULT < 0";
+  } else if (send_result == 0) {
+    return "SEND RESULT = 0";
+  }
+
+  std::cout << "create rcv buffer " << std::endl;
+  int len = 4096;
+  std::array<char, 4096> recvbuf;
+  recvbuf.fill(0x00);
+
+  std::cout << "rcv result " << std::endl;
+
+  int recv_result;
+  while ((recv_result = recv(this->sock_fd_, recvbuf.data(), len, 0)) == -1 &&
+         errno == EINTR) {
+    continue;
+  }
+  if (recv_result < 0) {
+    return "RCV RESULT < 0";
+  } else if (recv_result == 0) {
+    return "RCV RESULT = 0";
+  }
+  auto data = recvbuf.data();
+  std::array<char, 4096>::value_type *ptr = data;
+  std::cout << "rcv result finished printing .... :  " << std::endl;
+
+  for (int i = 0; i < buffer_w.size(); ++i) {
+    std::cout << ptr[i];
+  }
+  if (!validate_response(data, len)) {
+    return "No valid response";
+  }
+  std::string answer_method = method(data, len);
+
+  return data;
 }
 
 std::string SOPASProtocolASCII::send_return(int sock_fd, const char *data,
