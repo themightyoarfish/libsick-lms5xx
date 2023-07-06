@@ -228,7 +228,8 @@ bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
     if (channels_16bit.size() < 1) {
       return false;
       /* throw std::runtime_error(__func__ + */
-      /*                          ": parse_scan_telegram() got no 16bit channels"); */
+      /*                          ": parse_scan_telegram() got no 16bit
+       * channels"); */
     } else {
       const Channel &range_cn = channels_16bit.front();
       if (range_cn.description.find("DIST") == std::string::npos) {

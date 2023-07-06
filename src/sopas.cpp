@@ -58,7 +58,7 @@ SOPASProtocol::SOPASProtocol(const std::string &sensor_ip, const uint32_t port,
 
 SickErr SOPASProtocol::start_scan() {
   poller_ = std::thread([&] {
-    std::vector<char> buffer(2 * 4096);
+    std::vector<char> buffer(2 * CMD_BUFLEN);
     while (!stop_.load()) {
       int read_bytes =
           uninterrupted_recv(sock_fd_, buffer.data(), buffer.size());
@@ -122,12 +122,12 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
   if (!send_result.ok()) {
     return send_result;
   }
-  std::array<char, 4096> recvbuf;
+  std::array<char, CMD_BUFLEN> recvbuf;
   // fill with 0s so we have a null-terminated string
   recvbuf.fill(0x00);
 
   const int sock_recv_result =
-      receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
+      receive_sopas_reply(sock_fd, recvbuf.data(), CMD_BUFLEN);
   const SickErr recv_result = socket2err(sock_recv_result);
   if (!recv_result.ok()) {
     return recv_result;
@@ -137,10 +137,11 @@ SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
 
 SickErr SOPASProtocolASCII::set_access_mode(const uint8_t mode,
                                             const uint32_t pw_hash) {
-  std::array<char, 128> buffer;
+  std::array<char, CMD_BUFLEN> buffer;
   // authorized client mode with pw hash from telegram listing
-  int bytes_written = std::sprintf(
-      buffer.data(), command_masks_[SETACCESSMODE].c_str(), mode, pw_hash);
+  const int bytes_written =
+      std::snprintf(buffer.data(), CMD_BUFLEN,
+                    command_masks_[SETACCESSMODE].c_str(), mode, pw_hash);
   if (bytes_written < 0) {
     return SickErr(errno);
   }
@@ -213,14 +214,14 @@ SickErr SOPASProtocolASCII::run() {
 void SOPASProtocolASCII::stop(bool stop_laser) {
   SOPASProtocol::stop();
 
-  std::array<char, 4096> buffer;
+  std::array<char, CMD_BUFLEN> buffer;
   int len = make_command_msg(buffer.data(), LMDSCANDATA, 0);
   int bytes_sent = send_sopas_command(sock_fd_, buffer.data(), len);
   if (bytes_sent < 0) {
     throw std::runtime_error("Failed to send.");
   }
   while (true) {
-    int bytes_received = receive_sopas_reply(sock_fd_, &buffer[0], 4096);
+    int bytes_received = receive_sopas_reply(sock_fd_, &buffer[0], CMD_BUFLEN);
     std::string answer(&buffer[0], bytes_received);
     if (answer.find("LMDscandata") != std::string::npos) {
       SickErr status = status_from_bytes_ascii(buffer.data(), bytes_received);
