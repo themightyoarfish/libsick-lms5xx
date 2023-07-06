@@ -231,7 +231,40 @@ bool status_ok(const std::string &cmd_name, int status_code);
 bool validate_response(const char *data, size_t len);
 
 /**
- * @brief   Parse status from ascii SOPAS response
+ * @brief   Obtain the raw token response from bytes
+ *
+ * @param data  Bytes from the scanner
+ * @param len   Number of bytes from the scanner
+ * @param buf   Output TokenBuffer to easily access response tokens
+ *
+ * @return  Error if the response tokens signified an error, ok() if buf is
+ * valid
+ */
+SickErr get_response_ascii(const char *data, size_t len, TokenBuffer &buf);
+
+/**
+ * @brief   Parse the return for most methods, which consists of a command
+ * followed by a status code
+ *
+ * @param data  Bytes from the scanner
+ * @param len   Number of bytes from the scanner
+ *
+ * @return  Status code signifying an error or success
+ */
+SickErr parse_generic_return(const char *data, size_t len);
+
+/**
+ * @brief   Parse the generic error code which are emitted when the scanner has a problem unrelated to the exact method.
+ *
+ * @param data  Bytes from the scanner
+ * @param len   Number of bytes from the scanner
+ *
+ * @return  Status code signifying an error or success
+ */
+SickErr parse_generic_error(const char *data, size_t len);
+
+/**
+ * @brief   Parse status from ascii SOPAS response consisting only of answer method and status code
  *
  * @param data  Data from scanner
  * @param len   Length of \p data

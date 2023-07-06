@@ -110,6 +110,7 @@ public:
   SickErr(int error_num) : code_(error_num), is_posix_err_(true) {}
   SickErr(sick_err_t err)
       : code_(static_cast<int>(err)), is_posix_err_(false) {}
+  SickErr() : SickErr(static_cast<int>(sick_err_t::Ok)) {}
   bool ok() const {
     return is_posix_err_ ? code_ == 0
                          : code_ == static_cast<int>(sick_err_t::Ok);

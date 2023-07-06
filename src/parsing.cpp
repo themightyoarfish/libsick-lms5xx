@@ -228,7 +228,8 @@ bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
     if (channels_16bit.size() < 1) {
       return false;
       /* throw std::runtime_error(__func__ + */
-      /*                          ": parse_scan_telegram() got no 16bit channels"); */
+      /*                          ": parse_scan_telegram() got no 16bit
+       * channels"); */
     } else {
       const Channel &range_cn = channels_16bit.front();
       if (range_cn.description.find("DIST") == std::string::npos) {
@@ -327,33 +328,55 @@ bool validate_response(const char *data, size_t len) {
   return n_stx == 1 && n_etx == 1;
 }
 
+SickErr parse_generic_error(const char *data, size_t len) {
+  // generic errors
+  static const char pattern[]{"\x02sFA %2X\x03"};
+  unsigned int status = 0;
+  int scanf_result = sscanf(data, pattern, &status);
+  if (scanf_result != 1) {
+    return sick_err_t::CustomError;
+  }
+  return static_cast<sick_err_t>(status);
+}
+
+SickErr parse_generic_return(const char *data, size_t len) {
+  TokenBuffer buf(data, len);
+  std::string method(buf.next());
+  std::string cmd_name(buf.next());
+  if (buf.has_next()) {
+    int status_code = atoi(buf.next());
+    if (status_ok(cmd_name, status_code)) {
+      return sick_err_t::Ok;
+    } else {
+      return sick_err_t::CustomErrorCommandFailure;
+    }
+  } else {
+    return sick_err_t::Ok;
+  }
+}
+
 SickErr status_from_bytes_ascii(const char *data, size_t len) {
   if (!validate_response(data, len)) {
     return sick_err_t::CustomErrorInvalidDatagram;
   }
   const std::string answer_method = method(data, len);
   if (answer_method == "sFA") {
-    // generic errors
-    static const char pattern[]{"\x02sFA %2X\x03"};
-    unsigned int status = 0;
-    int scanf_result = sscanf(data, pattern, &status);
-    if (scanf_result != 1) {
-      return sick_err_t::CustomError;
-    }
-    return static_cast<sick_err_t>(status);
+    return parse_generic_error(data, len);
   } else {
-    TokenBuffer buf(data, len);
-    std::string method(buf.next());
-    std::string cmd_name(buf.next());
-    if (buf.has_next()) {
-      int status_code = atoi(buf.next());
-      if (status_ok(cmd_name, status_code)) {
-        return sick_err_t::Ok;
-      } else {
-        return sick_err_t::CustomErrorCommandFailure;
-      }
-    } else
-      return sick_err_t::Ok;
+    return parse_generic_return(data, len);
+  }
+}
+
+SickErr get_response_ascii(const char *data, size_t len, TokenBuffer &buf) {
+  if (!validate_response(data, len)) {
+    return sick_err_t::CustomErrorInvalidDatagram;
+  }
+  const std::string answer_method = method(data, len);
+  if (answer_method == "sFA") {
+    return parse_generic_error(data, len);
+  } else {
+    buf = TokenBuffer(data, len);
+    return SickErr();
   }
 }
 

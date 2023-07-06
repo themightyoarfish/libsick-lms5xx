@@ -12,6 +12,7 @@ namespace sick {
 
 using ScanCallback =
     std::function<void(const Scan &)>; ///< Callback type for complete scans
+constexpr size_t CMD_BUFLEN = 4096;
 
 /**
  * @brief   Class implementing SOPAS protocol abstractions on sockets.
@@ -195,8 +196,8 @@ public:
   int make_command_msg(char *data_out, SOPASCommand cmd, Args... args) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
-    int bytes_written =
-        std::sprintf(data_out, command_masks_[cmd].c_str(), args...);
+    int bytes_written = std::snprintf(data_out, CMD_BUFLEN,
+                                      command_masks_[cmd].c_str(), args...);
 #pragma GCC diagnostic pop
     if (bytes_written < 0) {
       throw std::runtime_error("sprintf fail");
@@ -215,7 +216,7 @@ public:
    */
   template <typename... Args>
   SickErr send_command(SOPASCommand cmd, Args... args) {
-    std::array<char, 4096> buffer;
+    std::array<char, CMD_BUFLEN> buffer;
     int bytes_written = make_command_msg(buffer.data(), cmd, args...);
 
     SickErr result = send_sopas_command_and_check_answer(
