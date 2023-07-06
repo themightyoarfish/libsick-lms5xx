@@ -105,24 +105,34 @@ int send_sopas_command(int sock_fd, const char *data, size_t len) {
   return uninterrupted_send(sock_fd, data, len);
 }
 
+static SickErr socket2err(const int sock_result) {
+  if (sock_result < 0) {
+    return SickErr(errno);
+  } else if (sock_result == 0) {
+    return sick_err_t::CustomErrorConnectionClosed;
+  } else {
+    return SickErr();
+  }
+}
+
 SickErr send_sopas_command_and_check_answer(int sock_fd, const char *data,
                                             size_t len) {
-  int send_result = send_sopas_command(sock_fd, data, len);
-  if (send_result < 0) {
-    return SickErr(errno);
-  } else if (send_result == 0) {
-    return sick_err_t::CustomErrorConnectionClosed;
+  const SickErr send_result =
+      socket2err(send_sopas_command(sock_fd, data, len));
+  if (!send_result.ok()) {
+    return send_result;
   }
   std::array<char, 4096> recvbuf;
   // fill with 0s so we have a null-terminated string
   recvbuf.fill(0x00);
-  int recv_result = receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
-  if (recv_result < 0) {
-    return SickErr(errno);
-  } else if (recv_result == 0) {
-    return sick_err_t::CustomErrorConnectionClosed;
+
+  const int sock_recv_result =
+      receive_sopas_reply(sock_fd, recvbuf.data(), 4096);
+  const SickErr recv_result = socket2err(sock_recv_result);
+  if (!recv_result.ok()) {
+    return recv_result;
   }
-  return status_from_bytes_ascii(recvbuf.data(), recv_result);
+  return status_from_bytes_ascii(recvbuf.data(), sock_recv_result);
 }
 
 SickErr SOPASProtocolASCII::set_access_mode(const uint8_t mode,
