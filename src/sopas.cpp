@@ -190,6 +190,8 @@ SOPASProtocolASCII::set_scan_config(const lms5xx::LMSConfigParams &params) {
 
 SickErr SOPASProtocolASCII::save_params() { return send_command(MEEWRITEALL); }
 
+SickErr SOPASProtocolASCII::reboot() { return send_command(REBOOT); }
+
 SickErr SOPASProtocolASCII::run() {
   SickErr status = send_command(RUN);
   if (!status.ok()) {
