@@ -1,4 +1,3 @@
-#include <iostream>
 #include <sick-lms5xx/parsing.hpp>
 
 using namespace std;
