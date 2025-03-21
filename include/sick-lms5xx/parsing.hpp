@@ -76,12 +76,12 @@ public:
   /**
    * @param t   Value to wrap
    */
-  simple_optional(const T &t) : t_(t), has_value_(true){};
+  simple_optional(const T &t) : t_(t), has_value_(true) {};
 
   /**
    * @brief Default ctor with no value
    */
-  simple_optional() : has_value_(false){};
+  simple_optional() : has_value_(false) {};
 
   static simple_optional none() { return simple_optional<T>(); }
 
@@ -176,6 +176,9 @@ public:
 
 /**
  * @brief   Enum for known scanner commands.
+ * @warning Append to this at the end, and match the order with command_masks_
+ * in sopas.hpp. I'm not sure why, but adding stuff in the beginning breaks
+ * functionality. Something is assuming certain int values for this enum
  */
 enum SOPASCommand {
   SETACCESSMODE,
