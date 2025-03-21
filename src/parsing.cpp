@@ -1,4 +1,3 @@
-#include <iostream>
 #include <sick-lms5xx/parsing.hpp>
 
 using namespace std;
@@ -203,79 +202,83 @@ bool ScanBatcher::parse_scan_telegram(const std::vector<char> &buffer,
   // always 0
   const long comment_exists = strtol(buf.next(), &p, 16);
 
-  const long time_exists = strtol(buf.next(), &p, 16);
-  if (time_exists == 1) {
-    const long y = strtol(buf.next(), &p, 16);
-    const long mo = strtol(buf.next(), &p, 16);
-    const long d = strtol(buf.next(), &p, 16);
-    const long h = strtol(buf.next(), &p, 16);
-    const long mi = strtol(buf.next(), &p, 16);
-    const long s = strtol(buf.next(), &p, 16);
-    const long us = strtol(buf.next(), &p, 16);
-    std::tm tm;
-    tm.tm_year = y - 1900;
-    tm.tm_mon = mo - 1;
-    tm.tm_mday = d;
-    tm.tm_hour = h;
-    tm.tm_min = mi;
-    tm.tm_sec = s;
-    tm.tm_isdst = -1;
-    std::time_t tmt = std::mktime(&tm);
-    std::chrono::system_clock::time_point stamp =
-        std::chrono::system_clock::from_time_t(tmt) +
-        std::chrono::microseconds(us);
+  // Disabled due to weird thread sanitizer complaint, this needs to be fixed properly
+  // const long time_exists = strtol(buf.next(), &p, 16);
+  // if (time_exists == 1) {
+  //   const long y = strtol(buf.next(), &p, 16);
+  //   const long mo = strtol(buf.next(), &p, 16);
+  //   const long d = strtol(buf.next(), &p, 16);
+  //   const long h = strtol(buf.next(), &p, 16);
+  //   const long mi = strtol(buf.next(), &p, 16);
+  //   const long s = strtol(buf.next(), &p, 16);
+  //   const long us = strtol(buf.next(), &p, 16);
+  //   std::tm tm;
+  //   tm.tm_year = y - 1900;
+  //   tm.tm_mon = mo - 1;
+  //   tm.tm_mday = d;
+  //   tm.tm_hour = h;
+  //   tm.tm_min = mi;
+  //   tm.tm_sec = s;
+  //   tm.tm_isdst = -1;
+  //   // This make tsan emit a data race in libc tzset_internal. However that
+  //   // function uses a lock, so unclear what the complaint is.
+  //   const std::time_t tmt = std::mktime(&tm);
+  //   const std::chrono::system_clock::time_point stamp =
+  //       std::chrono::system_clock::from_time_t(tmt) +
+  //       std::chrono::microseconds(us);
+  //   scan.time = stamp;
+  // }
+  //
+  scan.time = std::chrono::system_clock::now();
 
-    if (channels_16bit.size() < 1) {
+  if (channels_16bit.size() < 1) {
+    return false;
+    /* throw std::runtime_error(__func__ + */
+    /*                          ": parse_scan_telegram() got no 16bit
+     * channels"); */
+  } else {
+    const Channel &range_cn = channels_16bit.front();
+    if (range_cn.description.find("DIST") == std::string::npos) {
       return false;
-      /* throw std::runtime_error(__func__ + */
-      /*                          ": parse_scan_telegram() got no 16bit channels"); */
+      /* throw std::runtime_error( */
+      /*     __func__ + ": First 16bit channel was not range but " + */
+      /*     range_cn.description); */
     } else {
-      const Channel &range_cn = channels_16bit.front();
-      if (range_cn.description.find("DIST") == std::string::npos) {
+      const Channel &intensity_cn = channels_8bit.front();
+      if (intensity_cn.description.find("RSSI") == std::string::npos) {
         return false;
         /* throw std::runtime_error( */
-        /*     __func__ + ": First 16bit channel was not range but " + */
+        /*     __func__ + ": First 8bit channel was not intensity but " + */
         /*     range_cn.description); */
       } else {
-        const Channel &intensity_cn = channels_8bit.front();
-        if (intensity_cn.description.find("RSSI") == std::string::npos) {
-          return false;
-          /* throw std::runtime_error( */
-          /*     __func__ + ": First 8bit channel was not intensity but " + */
-          /*     range_cn.description); */
+        if (range_cn.values.size() != intensity_cn.values.size()) {
+          throw std::runtime_error(
+              "Ranges and intensities not matched in size.");
         } else {
-          if (range_cn.values.size() != intensity_cn.values.size()) {
-            throw std::runtime_error(
-                "Ranges and intensities not matched in size.");
-          } else {
-            if (scan.ranges.size() == 0) {
-              // first time -> fill nonchanging fields
-              scan.size = range_cn.values.size();
-              scan.ranges = Eigen::VectorXf::Zero(scan.size, 1);
-              scan.intensities = Eigen::VectorXf::Zero(scan.size, 1);
-              scan.ang_increment = range_cn.ang_incr;
-              scan.start_angle = angle_to_lms(range_cn.angles.front());
-              scan.end_angle = angle_to_lms(range_cn.angles.back());
-              Eigen::VectorXf angles(scan.size, 1);
-              std::memcpy(angles.data(), &range_cn.angles[0],
-                          scan.size * sizeof(float));
-              scan.cos_map = Eigen::cos(angles.array());
-              scan.sin_map = Eigen::sin(angles.array());
-            }
-
-            std::memcpy(scan.ranges.data(), &range_cn.values[0],
+          if (scan.ranges.size() == 0) {
+            // first time -> fill nonchanging fields
+            scan.size = range_cn.values.size();
+            scan.ranges = Eigen::VectorXf::Zero(scan.size, 1);
+            scan.intensities = Eigen::VectorXf::Zero(scan.size, 1);
+            scan.ang_increment = range_cn.ang_incr;
+            scan.start_angle = angle_to_lms(range_cn.angles.front());
+            scan.end_angle = angle_to_lms(range_cn.angles.back());
+            Eigen::VectorXf angles(scan.size, 1);
+            std::memcpy(angles.data(), &range_cn.angles[0],
                         scan.size * sizeof(float));
-            scan.ranges /= 1000;
-            std::memcpy(scan.intensities.data(), &intensity_cn.values[0],
-                        scan.size * sizeof(float));
-            scan.time = stamp;
-            return true;
+            scan.cos_map = Eigen::cos(angles.array());
+            scan.sin_map = Eigen::sin(angles.array());
           }
+
+          std::memcpy(scan.ranges.data(), &range_cn.values[0],
+                      scan.size * sizeof(float));
+          scan.ranges /= 1000;
+          std::memcpy(scan.intensities.data(), &intensity_cn.values[0],
+                      scan.size * sizeof(float));
+          return true;
         }
       }
     }
-  } else {
-    // no time stamp, use system time?
   }
   return false;
 }
