@@ -178,7 +178,6 @@ public:
  * @brief   Enum for known scanner commands.
  */
 enum SOPASCommand {
-  REBOOT,
   SETACCESSMODE,
   TSCROLE,
   TSCTCINTERFACE,
@@ -192,7 +191,8 @@ enum SOPASCommand {
   RUN,
   LMDSCANDATA,
   LMCSTOPMEAS,
-  LMCSTARTMEAS
+  LMCSTARTMEAS,
+  REBOOT
 };
 
 /**

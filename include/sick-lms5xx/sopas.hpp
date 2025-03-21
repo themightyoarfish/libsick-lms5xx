@@ -153,7 +153,6 @@ class SOPASProtocolASCII : public SOPASProtocol {
   using SOPASProtocol::SOPASProtocol;
 
   std::map<SOPASCommand, std::string> command_masks_ = {
-      {REBOOT, "\x02sMN mSCreboot\x03"},
       {SETACCESSMODE, "\x02sMN SetAccessMode %02d %08X\x03"},
       {TSCROLE, "\x02sWN TSCRole %02d\x03"},
       {TSCTCINTERFACE, "\x02sWN TSCTCInterface %02d\x03"},
@@ -174,7 +173,10 @@ class SOPASProtocolASCII : public SOPASProtocol {
       {LMDSCANDATA, "\x02sEN LMDscandata %u\x03"},
       {LMCSTOPMEAS, "\x02sMN LMCstopmeas\x03"},
       {LMCSTARTMEAS,
-       "\x02sMN LMCstartmeas\x03"}}; ///<    map from commands to format strings
+       "\x02sMN LMCstartmeas\x03"},
+      {REBOOT, "\x02sMN mSCreboot\x03"}
+
+  }; ///<    map from commands to format strings
                                      ///<    to fill arguments into
 
 public:
