@@ -8,7 +8,7 @@ namespace pcl {
 cloud_ptr_from_scan(const sick::Scan &scan) {
   ::pcl::PointCloud<::pcl::PointXYZI>::Ptr cloud_out =
       ::pcl::make_shared<::pcl::PointCloud<::pcl::PointXYZI>>();
-  cloud_out->resize(scan.ranges.size());
+  cloud_out->resize(scan.ranges.size(), 1);
   for (int i = 0; i < scan.ranges.size(); ++i) {
     cloud_out->points[i].x = scan.ranges(i) * scan.cos_map(i);
     cloud_out->points[i].y = scan.ranges(i) * scan.sin_map(i);
